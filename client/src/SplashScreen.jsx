@@ -1,371 +1,220 @@
 import { useEffect, useRef, useState } from 'react';
 
-/* ── realistic deep-space canvas ────────────────────────────── */
-function DeepSpace() {
+/* ── static star background ─────────────────────────────────── */
+function StarField() {
   const ref = useRef(null);
   useEffect(() => {
-    const canvas = ref.current; if (!canvas) return;
+    const canvas = ref.current;
+    if (!canvas) return;
+    const W = canvas.width  = window.innerWidth;
+    const H = canvas.height = window.innerHeight;
     const ctx = canvas.getContext('2d');
-    let raf, W, H;
 
-    // Star color temperatures (B-V index → RGB)
-    const STAR_COLORS = [
-      [155, 176, 255], // blue-white (hot)
-      [170, 191, 255], // blue-white
-      [202, 215, 255], // white-blue
-      [255, 255, 255], // pure white
-      [255, 255, 244], // white
-      [255, 255, 228], // yellow-white
-      [255, 244, 214], // slightly yellow
-      [255, 236, 190], // yellow-orange
-    ];
-
-    let bgStars, midStars, brightStars, milkyWayStars, nebulaClouds;
-
-    const randomColor = () => STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)];
-
-    const init = () => {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-
-      // Milky Way band: diagonal strip
-      const mwAngle = -0.35; // radians
-      const mwBand = Math.min(W, H) * 0.6;
-      milkyWayStars = Array.from({ length: 600 }, () => {
-        // distribute along a diagonal band
-        const t = (Math.random() - 0.5) * Math.max(W, H) * 1.4;
-        const n = (Math.random() - 0.5) * mwBand * (0.3 + Math.random() * 0.7);
-        const cx = W * 0.5 + Math.cos(mwAngle) * t + Math.cos(mwAngle + Math.PI/2) * n;
-        const cy = H * 0.5 + Math.sin(mwAngle) * t + Math.sin(mwAngle + Math.PI/2) * n;
-        const c = randomColor();
-        return {
-          x: cx, y: cy,
-          r: Math.random() * 0.55 + 0.08,
-          base: Math.random() * 0.22 + 0.03,
-          speed: Math.random() * 0.2 + 0.05,
-          phase: Math.random() * Math.PI * 2,
-          c,
-        };
-      });
-
-      // Scattered background stars
-      bgStars = Array.from({ length: 350 }, () => ({
-        x: Math.random() * W, y: Math.random() * H,
-        r: Math.random() * 0.7 + 0.1,
-        base: Math.random() * 0.30 + 0.04,
-        speed: Math.random() * 0.25 + 0.04,
-        phase: Math.random() * Math.PI * 2,
-        c: randomColor(),
-      }));
-
-      // Mid-range stars with soft glow
-      midStars = Array.from({ length: 55 }, () => ({
-        x: Math.random() * W, y: Math.random() * H,
-        r: Math.random() * 1.2 + 0.5,
-        base: Math.random() * 0.55 + 0.20,
-        speed: Math.random() * 0.15 + 0.05,
-        phase: Math.random() * Math.PI * 2,
-        c: randomColor(),
-      }));
-
-      // Bright stars with diffraction spikes
-      brightStars = Array.from({ length: 14 }, () => ({
-        x: Math.random() * W, y: Math.random() * H,
-        r: Math.random() * 1.8 + 1.0,
-        glow: Math.random() * 22 + 14,
-        spike: Math.random() * 28 + 18,
-        base: Math.random() * 0.5 + 0.6,
-        speed: Math.random() * 0.1 + 0.04,
-        phase: Math.random() * Math.PI * 2,
-        c: randomColor(),
-      }));
-
-      // Nebula cloud descriptors
-      nebulaClouds = [
-        { x: W*0.18, y: H*0.22, r: Math.min(W,H)*0.55, rgb:[55,15,110], a:0.10 },
-        { x: W*0.82, y: H*0.68, r: Math.min(W,H)*0.45, rgb:[12,35,95],  a:0.09 },
-        { x: W*0.55, y: H*0.38, r: Math.min(W,H)*0.38, rgb:[72,10,70],  a:0.07 },
-        { x: W*0.28, y: H*0.78, r: Math.min(W,H)*0.32, rgb:[8, 45,80],  a:0.06 },
-        { x: W*0.68, y: H*0.14, r: Math.min(W,H)*0.28, rgb:[30,10,90],  a:0.05 },
-      ];
-    };
-
-    init();
-    window.addEventListener('resize', init);
-
-    // draw gradient glow
-    const glow = (x, y, r, [rc,gc,bc], a) => {
+    const blob = (x, y, r, rgb, a) => {
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, `rgba(${rc},${gc},${bc},${a})`);
-      g.addColorStop(0.45, `rgba(${rc},${gc},${bc},${a*0.4})`);
-      g.addColorStop(1,  `rgba(${rc},${gc},${bc},0)`);
+      g.addColorStop(0, `rgba(${rgb},${a})`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
       ctx.fillStyle = g;
       ctx.fillRect(x-r, y-r, r*2, r*2);
     };
+    blob(W*0.15, H*0.18, Math.min(W,H)*0.50, '80,28,175', 0.10);
+    blob(W*0.85, H*0.75, Math.min(W,H)*0.44, '20,50,180', 0.09);
+    blob(W*0.52, H*0.48, Math.min(W,H)*0.34, '58,14,120', 0.06);
 
-    // diffraction spike
-    const spike = (x, y, len, [rc,gc,bc], a) => {
-      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-      for (const [dx,dy] of dirs) {
-        const g = ctx.createLinearGradient(x, y, x+dx*len, y+dy*len);
-        g.addColorStop(0, `rgba(${rc},${gc},${bc},${a})`);
-        g.addColorStop(1, `rgba(${rc},${gc},${bc},0)`);
-        ctx.strokeStyle = g;
-        ctx.lineWidth = 0.7;
-        ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dx*len, y+dy*len); ctx.stroke();
-      }
-    };
-
-    let t = 0;
-    const draw = () => {
-      ctx.clearRect(0, 0, W, H);
-      t += 0.007;
-
-      // ── nebula clouds ──
-      for (const n of nebulaClouds) glow(n.x, n.y, n.r, n.rgb, n.a);
-
-      // ── milky way glow band ──
-      const mwGrd = ctx.createLinearGradient(W*0.1, H*0.05, W*0.9, H*0.95);
-      mwGrd.addColorStop(0,   'rgba(30,15,60,0)');
-      mwGrd.addColorStop(0.35,'rgba(30,15,60,0.06)');
-      mwGrd.addColorStop(0.5, 'rgba(30,15,60,0.09)');
-      mwGrd.addColorStop(0.65,'rgba(30,15,60,0.06)');
-      mwGrd.addColorStop(1,   'rgba(30,15,60,0)');
-      ctx.fillStyle = mwGrd;
-      ctx.fillRect(0, 0, W, H);
-
-      // ── milky way micro-stars ──
-      for (const s of milkyWayStars) {
-        const o = s.base * (0.3 + 0.7 * Math.sin(t * s.speed + s.phase));
-        if (o < 0.01) continue;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(${s.c[0]},${s.c[1]},${s.c[2]},${o})`;
-        ctx.fill();
-      }
-
-      // ── background stars ──
-      for (const s of bgStars) {
-        const o = s.base * (0.35 + 0.65 * Math.sin(t * s.speed + s.phase));
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(${s.c[0]},${s.c[1]},${s.c[2]},${o})`;
-        ctx.fill();
-      }
-
-      // ── mid stars with soft glow ──
-      for (const s of midStars) {
-        const o = s.base * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
-        glow(s.x, s.y, s.r * 7, s.c, o * 0.35);
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(${s.c[0]},${s.c[1]},${s.c[2]},${o})`;
-        ctx.fill();
-      }
-
-      // ── bright stars ──
-      for (const s of brightStars) {
-        const o = s.base * (0.65 + 0.35 * Math.sin(t * s.speed + s.phase));
-        // outer halo
-        glow(s.x, s.y, s.glow * 4, s.c, o * 0.25);
-        // inner glow
-        glow(s.x, s.y, s.glow, s.c, o * 0.7);
-        // core
-        const cg = ctx.createRadialGradient(s.x,s.y,0, s.x,s.y,s.r*1.2);
-        cg.addColorStop(0,'rgba(255,255,255,1)');
-        cg.addColorStop(0.4,`rgba(${s.c[0]},${s.c[1]},${s.c[2]},0.9)`);
-        cg.addColorStop(1,`rgba(${s.c[0]},${s.c[1]},${s.c[2]},0)`);
-        ctx.fillStyle = cg;
-        ctx.beginPath(); ctx.arc(s.x,s.y,s.r*1.2,0,Math.PI*2); ctx.fill();
-        // spikes
-        spike(s.x, s.y, s.spike * o, s.c, o * 0.45);
-        // diagonal secondary spikes (fainter)
-        ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(Math.PI/4); ctx.translate(-s.x,-s.y);
-        spike(s.x, s.y, s.spike * 0.5 * o, s.c, o * 0.2);
-        ctx.restore();
-      }
-
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', init); };
+    for (let i = 0; i < 160; i++) {
+      const x = Math.random() * W, y = Math.random() * H;
+      const r = Math.random() * 0.7 + 0.1;
+      const a = (Math.random() * 0.28 + 0.04).toFixed(2);
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(200,210,255,${a})`; ctx.fill();
+    }
+    for (let i = 0; i < 22; i++) {
+      const x = Math.random() * W, y = Math.random() * H;
+      const r = Math.random() * 1.1 + 0.4;
+      const a = (Math.random() * 0.48 + 0.16).toFixed(2);
+      const gw = ctx.createRadialGradient(x, y, 0, x, y, r*6);
+      gw.addColorStop(0, `rgba(210,220,255,${a})`);
+      gw.addColorStop(1, 'rgba(210,220,255,0)');
+      ctx.fillStyle = gw; ctx.fillRect(x-r*6, y-r*6, r*12, r*12);
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(230,235,255,${a})`; ctx.fill();
+    }
   }, []);
-  return <canvas ref={ref} style={{ position:'absolute', inset:0, pointerEvents:'none' }} />;
+
+  return <canvas ref={ref} style={{ position:'absolute', inset:0, pointerEvents:'none' }}/>;
 }
 
-/* ── ring ────────────────────────────────────────────────────── */
-function Ring({ d, color, shadowColor, strokeW, dash, duration, reverse, delay, dots=[] }) {
-  return (
-    <div style={{
-      position:'absolute', width:d, height:d,
-      top:'50%', left:'50%', marginTop:-d/2, marginLeft:-d/2,
-      borderRadius:'50%',
-      border:`${strokeW}px ${dash?'dashed':'solid'} ${color}`,
-      boxShadow:`0 0 14px ${shadowColor}, 0 0 30px ${shadowColor}55, inset 0 0 14px ${shadowColor}33`,
-      animation:`sp-ring-in 1s cubic-bezier(0.16,1,0.3,1) ${delay}s both`,
-    }}>
-      <div style={{
-        position:'absolute', inset:-strokeW,
-        borderRadius:'50%',
-        border:`${strokeW}px ${dash?'dashed':'solid'} ${color}`,
-        animation:`${reverse?'sp-ccw':'sp-cw'} ${duration}s linear ${delay}s infinite`,
-      }}>
-        {dots.map((dot,i) => (
-          <div key={i} style={{
-            position:'absolute',
-            width:dot.size, height:dot.size, borderRadius:'50%',
-            background:dot.color,
-            boxShadow:`0 0 ${dot.size*2}px ${dot.color}, 0 0 ${dot.size*5}px ${dot.color}99`,
-            ...(dot.pos==='top'    && {top:-dot.size/2,    left:'50%', transform:'translateX(-50%)'}),
-            ...(dot.pos==='right'  && {right:-dot.size/2,  top:'50%',  transform:'translateY(-50%)'}),
-            ...(dot.pos==='bottom' && {bottom:-dot.size/2, left:'50%', transform:'translateX(-50%)'}),
-            ...(dot.pos==='left'   && {left:-dot.size/2,   top:'50%',  transform:'translateY(-50%)'}),
-          }}/>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ── holographic glass orb ───────────────────────────────────── */
-function GlassOrb({ r }) {
+/* ── holographic card ───────────────────────────────────────── */
+function HoloCard({ w, h }) {
   const ref = useRef(null);
+  const CR = 14;
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const pad = Math.round(r * 1.1);
-    const sz  = r * 2 + pad * 2;
-
-    canvas.width  = sz * dpr;
-    canvas.height = sz * dpr;
-    canvas.style.width  = sz + 'px';
-    canvas.style.height = sz + 'px';
-    canvas.style.marginTop  = -sz / 2 + 'px';
-    canvas.style.marginLeft = -sz / 2 + 'px';
-
+    canvas.width  = w * dpr;
+    canvas.height = h * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const cx = pad + r, cy = pad + r;
+    const cx = w/2, cy = h/2;
     let raf, t = 0;
 
-    const RIM = [
-      [255,60,80],[255,145,50],[235,220,50],
-      [50,220,90],[50,185,255],[90,90,255],[200,60,255],
-    ];
-    const CAUSTIC = [
-      [255,120,120],[255,190,80],[120,255,130],
-      [80,200,255],[160,100,255],[255,120,200],
-    ];
+    const cardPath = () => {
+      const r = CR;
+      ctx.beginPath();
+      ctx.moveTo(r, 0);
+      ctx.lineTo(w-r, 0); ctx.quadraticCurveTo(w, 0, w, r);
+      ctx.lineTo(w, h-r); ctx.quadraticCurveTo(w, h, w-r, h);
+      ctx.lineTo(r, h);   ctx.quadraticCurveTo(0, h, 0, h-r);
+      ctx.lineTo(0, r);   ctx.quadraticCurveTo(0, 0, r, 0);
+      ctx.closePath();
+    };
 
     const draw = () => {
-      ctx.clearRect(0, 0, sz, sz);
-      t += 0.008;
-      const pulse = 0.5 + 0.5 * Math.sin(t * 0.5);
+      ctx.clearRect(0, 0, w, h);
+      t += 0.007;
 
-      // outer ambient glow
-      const og = ctx.createRadialGradient(cx, cy, 0, cx, cy, r + pad * 0.85);
-      og.addColorStop(0,    `rgba(167,139,250,${(0.10 + 0.04 * pulse).toFixed(3)})`);
-      og.addColorStop(0.35, `rgba(96,165,250,${(0.05 + 0.02 * pulse).toFixed(3)})`);
-      og.addColorStop(0.65, `rgba(240,171,252,${(0.03 + 0.01 * pulse).toFixed(3)})`);
-      og.addColorStop(1,    'rgba(0,0,0,0)');
-      ctx.fillStyle = og;
-      ctx.fillRect(0, 0, sz, sz);
+      // card base
+      cardPath();
+      const base = ctx.createLinearGradient(0, 0, w, h);
+      base.addColorStop(0, '#0f0f2a');
+      base.addColorStop(1, '#080818');
+      ctx.fillStyle = base; ctx.fill();
 
-      // glass body (clipped to sphere)
       ctx.save();
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      cardPath(); ctx.clip();
 
-      const body = ctx.createRadialGradient(cx - r*0.15, cy - r*0.2, 0, cx, cy, r);
-      body.addColorStop(0,    'rgba(230,238,255,0.05)');
-      body.addColorStop(0.55, 'rgba(180,200,255,0.03)');
-      body.addColorStop(1,    'rgba(110,140,255,0.07)');
-      ctx.fillStyle = body; ctx.fillRect(0, 0, sz, sz);
+      // inner ambient glow
+      const ig = ctx.createRadialGradient(cx*0.85, cy*0.65, 0, cx, cy, Math.max(w,h)*0.85);
+      ig.addColorStop(0,   'rgba(110,80,220,0.14)');
+      ig.addColorStop(0.4, 'rgba(60,100,210,0.07)');
+      ig.addColorStop(1,   'rgba(20,20,60,0)');
+      ctx.fillStyle = ig; ctx.fillRect(0, 0, w, h);
 
-      // caustic light specks
-      for (let i = 0; i < 6; i++) {
-        const a  = t * (0.18 + i * 0.06) + i * (Math.PI * 2 / 6);
-        const d  = r * (0.21 + 0.11 * Math.sin(t * 0.28 + i));
-        const bx = cx + Math.cos(a) * d, by = cy + Math.sin(a) * d;
-        const bs = r * 0.17;
-        const [rc,gc,bc] = CAUSTIC[i];
-        const al = (0.10 + 0.06 * Math.sin(t * 0.5 + i)).toFixed(3);
+      // holographic rainbow sweep
+      const ha    = t * 0.22;
+      const holoA = (0.15 + 0.07*Math.sin(t*0.35)).toFixed(3);
+      const hl    = ctx.createLinearGradient(
+        cx + Math.cos(ha)*w*1.6, cy + Math.sin(ha)*h*1.6,
+        cx - Math.cos(ha)*w*1.6, cy - Math.sin(ha)*h*1.6
+      );
+      hl.addColorStop(0,    `rgba(255,70,110,${holoA})`);
+      hl.addColorStop(0.14, `rgba(255,152,50,${holoA})`);
+      hl.addColorStop(0.28, `rgba(232,222,45,${holoA})`);
+      hl.addColorStop(0.43, `rgba(50,222,92,${holoA})`);
+      hl.addColorStop(0.57, `rgba(50,188,255,${holoA})`);
+      hl.addColorStop(0.71, `rgba(100,92,255,${holoA})`);
+      hl.addColorStop(0.86, `rgba(212,62,255,${holoA})`);
+      hl.addColorStop(1,    `rgba(255,70,110,${holoA})`);
+      ctx.fillStyle = hl; ctx.fillRect(0, 0, w, h);
+
+      // glare stripe sweeping across
+      const gp  = (t * 0.11) % 1;
+      const gc  = -w*0.3 + w*1.6*gp;
+      const glr = ctx.createLinearGradient(gc - w*0.22, 0, gc + w*0.22, h);
+      glr.addColorStop(0,    'rgba(255,255,255,0)');
+      glr.addColorStop(0.35, 'rgba(255,255,255,0.04)');
+      glr.addColorStop(0.5,  'rgba(255,255,255,0.10)');
+      glr.addColorStop(0.65, 'rgba(255,255,255,0.04)');
+      glr.addColorStop(1,    'rgba(255,255,255,0)');
+      ctx.fillStyle = glr; ctx.fillRect(0, 0, w, h);
+
+      // holographic dot pattern
+      ctx.globalAlpha = 0.038;
+      for (let px = 10; px < w; px += 20) {
+        for (let py = 10; py < h; py += 20) {
+          const hue = ((px + py + t*28)|0) % 360;
+          ctx.strokeStyle = `hsl(${hue},100%,72%)`;
+          ctx.lineWidth = 0.32;
+          ctx.beginPath(); ctx.arc(px, py, 3.8, 0, Math.PI*2); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // FUDA text
+      const fSize = Math.round(w * 0.30);
+      ctx.font = `800 ${fSize}px 'Bricolage Grotesque', sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(167,139,250,0.65)';
+      ctx.shadowBlur  = 24;
+      const tg = ctx.createLinearGradient(cx-w*0.38, cy-6, cx+w*0.38, cy+6);
+      tg.addColorStop(0,    'rgba(221,214,254,0.97)');
+      tg.addColorStop(0.35, 'rgba(167,139,250,0.97)');
+      tg.addColorStop(0.65, 'rgba(96,165,250,0.97)');
+      tg.addColorStop(1,    'rgba(240,171,252,0.97)');
+      ctx.fillStyle = tg;
+      ctx.fillText('FUDA', cx, cy * 0.94);
+      ctx.shadowBlur = 0;
+
+      // subtitle on card
+      ctx.font = `500 ${Math.round(w*0.075)}px 'Zen Kaku Gothic New', sans-serif`;
+      ctx.shadowColor = 'rgba(167,139,250,0.3)';
+      ctx.shadowBlur  = 8;
+      ctx.fillStyle   = 'rgba(167,139,250,0.42)';
+      ctx.fillText('ポケカ仕入れ判定', cx, cy*0.94 + fSize*0.72);
+      ctx.shadowBlur  = 0;
+
+      // caustic specks
+      const CP = [[255,125,125],[255,195,85],[95,255,165],[78,192,255],[188,138,255]];
+      for (let i = 0; i < 5; i++) {
+        const a  = t*(0.16+i*0.07) + i*1.26;
+        const d  = Math.min(w,h)*(0.16+0.09*Math.sin(t*0.28+i));
+        const bx = cx + Math.cos(a)*d, by = cy*0.68 + Math.sin(a)*d*0.55;
+        const bs = w*0.09;
+        const [rc,gc,bc] = CP[i];
+        const al = (0.11+0.06*Math.sin(t*0.5+i)).toFixed(3);
         const cg = ctx.createRadialGradient(bx, by, 0, bx, by, bs);
         cg.addColorStop(0, `rgba(${rc},${gc},${bc},${al})`);
         cg.addColorStop(1, `rgba(${rc},${gc},${bc},0)`);
-        ctx.fillStyle = cg; ctx.fillRect(bx - bs, by - bs, bs * 2, bs * 2);
+        ctx.fillStyle = cg; ctx.fillRect(bx-bs, by-bs, bs*2, bs*2);
       }
 
-      // main specular (top-left)
-      const hl1 = ctx.createRadialGradient(cx-r*0.27, cy-r*0.32, 0, cx-r*0.27, cy-r*0.32, r*0.35);
-      hl1.addColorStop(0,    'rgba(255,255,255,0.82)');
-      hl1.addColorStop(0.22, 'rgba(255,255,255,0.40)');
-      hl1.addColorStop(0.55, 'rgba(235,242,255,0.10)');
-      hl1.addColorStop(1,    'rgba(255,255,255,0)');
-      ctx.fillStyle = hl1; ctx.fillRect(0, 0, sz, sz);
-
-      // secondary specular (bottom-right, blue)
-      const hl2 = ctx.createRadialGradient(cx+r*0.25, cy+r*0.28, 0, cx+r*0.25, cy+r*0.28, r*0.15);
-      hl2.addColorStop(0, 'rgba(185,218,255,0.52)');
-      hl2.addColorStop(1, 'rgba(185,218,255,0)');
-      ctx.fillStyle = hl2; ctx.fillRect(cx, cy, r, r);
+      // corner glints
+      for (const [sx, sy] of [[w*0.13, h*0.09],[w*0.87, h*0.08]]) {
+        const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, w*0.12);
+        sg.addColorStop(0, `rgba(255,255,255,${(0.22+0.10*Math.sin(t*0.7+sx)).toFixed(3)})`);
+        sg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = sg; ctx.fillRect(sx-w*0.12, sy-w*0.12, w*0.24, w*0.24);
+      }
 
       ctx.restore();
 
-      // rainbow Fresnel rim
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < RIM.length; i++) {
-        const [rc,gc,bc] = RIM[i];
-        const rimR = r - i * 1.3;
-        const rot  = t * 0.10 + i * 0.40;
-        for (let s = 0; s < 9; s++) {
-          const a0 = (s / 9) * Math.PI * 2 + rot;
-          const a1 = ((s + 0.55) / 9) * Math.PI * 2 + rot;
-          const al = ((0.22 + 0.12 * Math.sin(a0 * 2.5 + t)) *
-                      (0.5  + 0.5  * Math.sin(t * 0.25 + i * 0.6))).toFixed(3);
-          ctx.strokeStyle = `rgba(${rc},${gc},${bc},${al})`;
-          ctx.lineWidth   = 1.6 - i * 0.14;
-          ctx.beginPath(); ctx.arc(cx, cy, rimR, a0, a1); ctx.stroke();
-        }
-      }
-      ctx.restore();
-
-      // edge outline
-      ctx.strokeStyle = 'rgba(255,255,255,0.13)';
-      ctx.lineWidth = 0.7;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      // animated rainbow border
+      const br  = t * 0.30;
+      const bra = (0.55+0.20*Math.sin(t*0.4)).toFixed(3);
+      const bdg = ctx.createLinearGradient(
+        cx+Math.cos(br)*w, cy+Math.sin(br)*h,
+        cx-Math.cos(br)*w, cy-Math.sin(br)*h
+      );
+      bdg.addColorStop(0,    `rgba(167,139,250,${bra})`);
+      bdg.addColorStop(0.25, `rgba(96,165,250,${bra})`);
+      bdg.addColorStop(0.5,  `rgba(240,171,252,${bra})`);
+      bdg.addColorStop(0.75, `rgba(167,139,250,${bra})`);
+      bdg.addColorStop(1,    `rgba(96,165,250,${bra})`);
+      cardPath();
+      ctx.shadowColor = 'rgba(167,139,250,0.45)';
+      ctx.shadowBlur  = 14;
+      ctx.strokeStyle = bdg; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.shadowBlur  = 0;
 
       raf = requestAnimationFrame(draw);
     };
 
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [r]);
+  }, [w, h]);
 
   return (
     <canvas
       ref={ref}
       style={{
-        position: 'absolute', top: '50%', left: '50%',
-        pointerEvents: 'none',
-        animation: 'sp-ring-in 1.0s cubic-bezier(0.16,1,0.3,1) 0.42s both',
+        display: 'block',
+        borderRadius: CR + 'px',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.65), 0 0 90px rgba(140,100,255,0.14)',
       }}
     />
-  );
-}
-
-/* ── ripple ──────────────────────────────────────────────────── */
-function Ripple({ delay, color }) {
-  return (
-    <div style={{
-      position:'absolute', width:170, height:170,
-      top:'50%', left:'50%', marginTop:-85, marginLeft:-85,
-      borderRadius:'50%', border:`1px solid ${color}`,
-      animation:`sp-ripple 2.6s ease-out ${delay}s infinite`, pointerEvents:'none',
-    }}/>
   );
 }
 
@@ -380,119 +229,97 @@ export default function SplashScreen({ onDone }) {
   };
 
   useEffect(() => {
-    const t = setTimeout(dismiss, 4200);
+    const t = setTimeout(dismiss, 4500);
     return () => clearTimeout(t);
   }, []);
 
-  const S = Math.min(window.innerWidth * 0.88, 380);
+  const cardW = Math.round(Math.min(window.innerWidth * 0.55, 230));
+  const cardH = Math.round(cardW / 0.715);
 
   return (
-    <div onClick={dismiss} style={{
-      position:'fixed', inset:0, zIndex:200, overflow:'hidden',
-      background:'#000005',
-      cursor:'pointer', userSelect:'none',
-      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      animation: out ? 'sp-out 0.58s cubic-bezier(0.4,0,1,1) forwards' : 'sp-in 0.4s ease both',
-    }}>
-      <DeepSpace />
+    <div
+      onClick={dismiss}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200, overflow: 'hidden',
+        background: '#030510',
+        cursor: 'pointer', userSelect: 'none',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        animation: out
+          ? 'sp-out 0.58s cubic-bezier(0.4,0,1,1) forwards'
+          : 'sp-in 0.4s ease both',
+      }}
+    >
+      <StarField />
 
-      {/* very subtle center ambient glow behind logo */}
-      <div style={{
-        position:'absolute', width:600, height:600,
-        top:'50%', left:'50%', marginTop:-300, marginLeft:-300,
-        borderRadius:'50%',
-        background:'radial-gradient(ellipse, rgba(100,60,200,0.12) 0%, rgba(40,60,180,0.06) 40%, transparent 70%)',
-        pointerEvents:'none',
-        animation:'sp-aurora 10s ease infinite alternate',
-      }}/>
-
-      {/* ring stage */}
-      <div style={{ position:'absolute', width:S, height:S, top:'50%', left:'50%', transform:'translate(-50%,-50%)' }}>
-        <Ripple delay={0.7}  color="rgba(167,139,250,0.55)" />
-        <Ripple delay={2.1}  color="rgba(96,165,250,0.40)" />
-        <GlassOrb r={Math.round(S * 0.16)} />
-
-        <Ring d={S}        color="rgba(167,139,250,0.28)" shadowColor="rgba(167,139,250,0.4)"
-          strokeW={1}  dash duration={30} reverse={false} delay={0.30}
-          dots={[{pos:'top',size:5,color:'#a78bfa'},{pos:'bottom',size:4,color:'#c084fc'}]}/>
-
-        <Ring d={S*0.70}   color="rgba(96,165,250,0.55)"  shadowColor="rgba(96,165,250,0.5)"
-          strokeW={1.5} duration={16} reverse delay={0.44}
-          dots={[{pos:'top',size:9,color:'#60a5fa'},{pos:'right',size:6,color:'#818cf8'},{pos:'left',size:5,color:'#38bdf8'}]}/>
-
-        <Ring d={S*0.43}   color="rgba(240,171,252,0.40)" shadowColor="rgba(240,171,252,0.4)"
-          strokeW={1}  dash duration={10} reverse={false} delay={0.56}
-          dots={[{pos:'right',size:5,color:'#f0abfc'}]}/>
+      {/* center glow behind card */}
+      <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-60%)', pointerEvents:'none' }}>
+        <div style={{
+          width: cardW * 2.8, height: cardH * 2.0,
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse, rgba(110,65,215,0.13) 0%, rgba(45,75,200,0.06) 40%, transparent 70%)',
+          animation: 'sp-aurora 10s ease infinite alternate',
+        }}/>
       </div>
 
-      {/* center content */}
-      <div style={{ position:'relative', zIndex:10, display:'flex', flexDirection:'column', alignItems:'center' }}>
-        {/* IxyPixy — beam reveals text as it sweeps left→right */}
-        <div style={{ position:'relative', display:'inline-block' }}>
-          <div style={{
-            fontFamily:'var(--font-display)',
-            fontSize:`clamp(58px,16vw,96px)`,
-            fontWeight:800,
-            letterSpacing:'-0.035em',
-            lineHeight:1,
-            background:'linear-gradient(125deg,#ddd6fe 0%,#a78bfa 22%,#60a5fa 46%,#f0abfc 70%,#fcd34d 90%,#ddd6fe 100%)',
-            backgroundSize:'280% 280%',
-            WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
-            filter:'drop-shadow(0 0 28px rgba(167,139,250,0.9)) drop-shadow(0 0 70px rgba(96,165,250,0.5))',
-            animation:'sp-text-reveal 1.0s linear 0.85s both, sp-shimmer 5s linear 0.85s infinite',
-          }}>IxyPixy</div>
-          <div style={{
-            position:'absolute', top:'-30%', bottom:'-30%',
-            left:'-5%', width:'70px', transform:'translateX(-50%)',
-            background:'linear-gradient(90deg,transparent,rgba(167,139,250,0.4) 25%,rgba(255,255,255,0.95) 50%,rgba(167,139,250,0.4) 75%,transparent)',
-            filter:'blur(3px)',
-            boxShadow:'0 0 20px rgba(167,139,250,0.9),0 0 40px rgba(96,165,250,0.6)',
-            animation:'sp-beam-x 1.0s linear 0.85s both',
-            pointerEvents:'none',
-          }}/>
+      {/* content */}
+      <div style={{
+        position: 'relative', zIndex: 10,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', gap: 26,
+      }}>
+        {/* holographic card — perspective wrapper → tilt → fade-in */}
+        <div style={{ perspective: '1000px' }}>
+          <div style={{ animation: 'sp-holo-tilt 8s ease-in-out 0.6s infinite' }}>
+            <div style={{ animation: 'sp-card-fade 1.0s cubic-bezier(0.16,1,0.3,1) 0.38s both' }}>
+              <HoloCard w={cardW} h={cardH} />
+            </div>
+          </div>
         </div>
 
-        {/* divider */}
+        {/* company name */}
         <div style={{
-          marginTop:18, height:1,
-          background:'linear-gradient(90deg,transparent,rgba(167,139,250,0.7) 30%,rgba(96,165,250,0.7) 70%,transparent)',
-          width:0, transition:'width 0.65s cubic-bezier(0.16,1,0.3,1) 1.5s',
-        }} ref={el => { if (el) requestAnimationFrame(() => { el.style.width='200px'; }); }}/>
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(26px,6.5vw,36px)',
+          fontWeight: 800,
+          letterSpacing: '-0.02em',
+          background: 'linear-gradient(125deg,#ddd6fe 0%,#a78bfa 30%,#60a5fa 60%,#f0abfc 100%)',
+          backgroundSize: '200% 200%',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          animation: 'sp-sub 0.5s ease 1.4s both, sp-shimmer 5s linear 1.4s infinite',
+          filter: 'drop-shadow(0 0 14px rgba(167,139,250,0.55))',
+        }}>IxyPixy</div>
 
         <div style={{
-          marginTop:16, fontFamily:'var(--font-display)',
-          fontSize:'clamp(17px,4vw,24px)', fontWeight:700,
-          letterSpacing:'0.5em', color:'rgba(255,255,255,0.85)',
-          animation:'sp-sub 0.5s ease 1.65s both',
-          filter:'drop-shadow(0 0 10px rgba(167,139,250,0.55))',
-        }}>FUDA</div>
-
-        <div style={{
-          marginTop:8, fontFamily:'var(--font-ja)', fontSize:11,
-          letterSpacing:'0.22em', color:'rgba(167,139,250,0.55)',
-          animation:'sp-sub 0.5s ease 1.9s both',
-        }}>ポケカ仕入れ判定アプリ</div>
+          marginTop: -18,
+          fontFamily: 'var(--font-ja)',
+          fontSize: 11,
+          letterSpacing: '0.20em',
+          color: 'rgba(167,139,250,0.48)',
+          animation: 'sp-sub 0.5s ease 1.75s both',
+        }}>ポケモンカード 仕入れ判定アプリ</div>
       </div>
 
       {/* tap hint */}
       <div style={{
-        position:'absolute', bottom:44,
-        fontFamily:'var(--font-ja)', fontSize:11,
-        letterSpacing:'0.14em', color:'rgba(255,255,255,0.25)',
-        animation:'sp-pulse 2s ease 2.5s infinite, sp-sub 0.4s ease 2.5s both',
+        position: 'absolute', bottom: 44,
+        fontFamily: 'var(--font-ja)', fontSize: 11,
+        letterSpacing: '0.14em', color: 'rgba(255,255,255,0.22)',
+        animation: 'sp-pulse 2s ease 2.5s infinite, sp-sub 0.4s ease 2.5s both',
       }}>タップしてはじめる</div>
 
-      {/* bottom accent bar */}
+      {/* bottom bar */}
       <div style={{
-        position:'absolute', bottom:0, left:0, height:2,
-        background:'linear-gradient(90deg,#a78bfa,#60a5fa,#f0abfc)',
-        animation:'sp-bar 1.4s cubic-bezier(0.16,1,0.3,1) 0.4s both',
+        position: 'absolute', bottom: 0, left: 0, height: 2,
+        background: 'linear-gradient(90deg,#a78bfa,#60a5fa,#f0abfc)',
+        animation: 'sp-bar 1.4s cubic-bezier(0.16,1,0.3,1) 0.5s both',
       }}/>
 
       {/* film grain */}
       <div style={{
-        position:'absolute', inset:0, pointerEvents:'none', opacity:0.05, mixBlendMode:'overlay',
-        backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        opacity: 0.04, mixBlendMode: 'overlay',
+        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E\")",
       }}/>
     </div>
   );
