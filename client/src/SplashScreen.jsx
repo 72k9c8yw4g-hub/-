@@ -296,26 +296,28 @@ export default function SplashScreen({ onDone }) {
 
       {/* center content */}
       <div style={{ position:'relative', zIndex:10, display:'flex', flexDirection:'column', alignItems:'center' }}>
-        {/* IxyPixy */}
-        <div style={{
-          fontFamily:'var(--font-display)',
-          fontSize:`clamp(58px,16vw,96px)`,
-          fontWeight:800,
-          letterSpacing:'-0.035em',
-          lineHeight:1,
-          background:'linear-gradient(125deg,#ddd6fe 0%,#a78bfa 22%,#60a5fa 46%,#f0abfc 70%,#fcd34d 90%,#ddd6fe 100%)',
-          backgroundSize:'280% 280%',
-          WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
-          animation:'sp-logo 1.1s cubic-bezier(0.16,1,0.3,1) 0.38s both, sp-shimmer 5s linear 0.38s infinite',
-          filter:'drop-shadow(0 0 28px rgba(167,139,250,0.9)) drop-shadow(0 0 70px rgba(96,165,250,0.5))',
-        }}>IxyPixy</div>
-
-        {/* sweep */}
-        <div style={{ position:'absolute', inset:0, overflow:'hidden', pointerEvents:'none', borderRadius:8 }}>
+        {/* IxyPixy — beam reveals text as it sweeps left→right */}
+        <div style={{ position:'relative', display:'inline-block' }}>
           <div style={{
-            position:'absolute', top:'-20%', bottom:'-20%', width:'22%',
-            background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.14) 40%,rgba(255,255,255,0.30) 50%,rgba(255,255,255,0.14) 60%,transparent)',
-            animation:'sp-sweep 0.65s cubic-bezier(0.4,0,0.2,1) 1.35s both',
+            fontFamily:'var(--font-display)',
+            fontSize:`clamp(58px,16vw,96px)`,
+            fontWeight:800,
+            letterSpacing:'-0.035em',
+            lineHeight:1,
+            background:'linear-gradient(125deg,#ddd6fe 0%,#a78bfa 22%,#60a5fa 46%,#f0abfc 70%,#fcd34d 90%,#ddd6fe 100%)',
+            backgroundSize:'280% 280%',
+            WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
+            filter:'drop-shadow(0 0 28px rgba(167,139,250,0.9)) drop-shadow(0 0 70px rgba(96,165,250,0.5))',
+            animation:'sp-text-reveal 1.0s linear 0.85s both, sp-shimmer 5s linear 0.85s infinite',
+          }}>IxyPixy</div>
+          <div style={{
+            position:'absolute', top:'-30%', bottom:'-30%',
+            left:'-5%', width:'70px', transform:'translateX(-50%)',
+            background:'linear-gradient(90deg,transparent,rgba(167,139,250,0.4) 25%,rgba(255,255,255,0.95) 50%,rgba(167,139,250,0.4) 75%,transparent)',
+            filter:'blur(3px)',
+            boxShadow:'0 0 20px rgba(167,139,250,0.9),0 0 40px rgba(96,165,250,0.6)',
+            animation:'sp-beam-x 1.0s linear 0.85s both',
+            pointerEvents:'none',
           }}/>
         </div>
 

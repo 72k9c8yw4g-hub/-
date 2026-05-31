@@ -185,21 +185,20 @@ body {
   0%   { transform:scale(1);   opacity:0.7; }
   100% { transform:scale(2.6); opacity:0; }
 }
-@keyframes sp-logo {
-  0%   { opacity:0; filter:blur(32px) brightness(3); transform:scale(1.18) translateY(8px); }
-  50%  { opacity:1; filter:blur(6px) brightness(1.6); transform:scale(1.04) translateY(-2px); }
-  100% { opacity:1; filter:blur(0) brightness(1); transform:scale(1) translateY(0); }
+@keyframes sp-text-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0% 0 0); }
 }
 @keyframes sp-shimmer {
   0%   { background-position:0% 50%; }
   50%  { background-position:100% 50%; }
   100% { background-position:0% 50%; }
 }
-@keyframes sp-sweep {
-  0%   { left:-30%; opacity:0; }
+@keyframes sp-beam-x {
+  0%   { left:-5%; opacity:0; }
   5%   { opacity:1; }
-  90%  { opacity:1; }
-  100% { left:120%; opacity:0; }
+  95%  { opacity:1; }
+  100% { left:105%; opacity:0; }
 }
 @keyframes sp-sub   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 @keyframes sp-pulse { 0%,100%{opacity:0.25} 50%{opacity:0.7} }
