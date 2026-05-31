@@ -68,7 +68,7 @@ export function StoreProvider({ children }) {
 
   const _upsertItem = useCallback(async (item) => {
     if (isConfigured && supabase) {
-      supabase.from('items').upsert({ id: item.id, team: TEAM, data: item, updated_at: new Date().toISOString() });
+      await supabase.from('items').upsert({ id: item.id, team: TEAM, data: item, updated_at: new Date().toISOString() });
     }
   }, []);
 
@@ -120,7 +120,7 @@ export function StoreProvider({ children }) {
   const deleteItem = useCallback(async (id) => {
     setAllItems(prev => prev.filter(i => i.id !== id));
     if (isConfigured && supabase) {
-      supabase.from('items').delete().eq('id', id).eq('team', TEAM);
+      await supabase.from('items').delete().eq('id', id).eq('team', TEAM);
     }
   }, []);
 
@@ -133,7 +133,7 @@ export function StoreProvider({ children }) {
     };
     setConfig(newCfg);
     if (isConfigured && supabase) {
-      supabase.from('config').upsert({ team: TEAM, data: newCfg });
+      await supabase.from('config').upsert({ team: TEAM, data: newCfg });
     }
   }, []);
 
