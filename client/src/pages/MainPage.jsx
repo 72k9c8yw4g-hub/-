@@ -4,6 +4,42 @@ import { calcProfit, daysAgo } from '../lib/calc.js';
 
 const PLATFORMS = ['ヤフオク', 'Yahoo!フリマ'];
 
+const BASE = (() => {
+  const { protocol, host, pathname } = window.location;
+  return `${protocol}//${host}${pathname.replace(/\/$/, '')}`;
+})();
+
+const LINKS = [
+  { label: '① メイン（全員）',   url: `${BASE}/` },
+  { label: '② 設定（オーナー）', url: `${BASE}/#/admin` },
+  { label: '③ 仕入れ係専用',     url: `${BASE}/#/purchasing` },
+];
+
+function CopyLinks() {
+  const [copied, setCopied] = useState(null);
+  const copy = (url, idx) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(idx);
+      setTimeout(() => setCopied(null), 1800);
+    });
+  };
+  return (
+    <div className="glass rounded-2xl p-4 flex flex-col gap-2">
+      <div className="text-xs font-bold text-slate-400 mb-1" style={{fontFamily:'var(--font-ja)'}}>URLをコピーして共有</div>
+      {LINKS.map((l, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-xs text-slate-600 flex-1 truncate" style={{fontFamily:'var(--font-ja)'}}>{l.label}</span>
+          <button
+            onClick={() => copy(l.url, i)}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold shrink-0 transition-all ${copied === i ? 'bg-emerald-100 text-emerald-600' : 'btn-ghost'}`}
+            style={{fontFamily:'var(--font-ja)'}}
+          >{copied === i ? '✓ コピー済み' : 'コピー'}</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function MainPage() {
   const { items, config, myName, syncing, addItem, isConfigured } = useStore();
   const [tab, setTab] = useState('list'); // list | input | analytics
@@ -113,6 +149,7 @@ export default function MainPage() {
 
         {tab === 'list' && (
           <div className="flex flex-col gap-5 fade-in">
+            <CopyLinks />
             <Section title="保留中" count={pending.length} color="blue" items={pending} config={config} renderItem={i => <PendingCard key={i.id} item={i} />} />
             <Section title="売り出し中" count={selling.length} color="purple" items={selling} config={config} alert={alertItems.length}
               renderItem={i => <SellingCard key={i.id} item={i} config={config} />} />
