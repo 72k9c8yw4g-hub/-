@@ -4,10 +4,11 @@ import { genId, isExpiredReject } from './calc.js';
 
 export const DEFAULT_CONFIG = {
   members: ['メンバー1', 'メンバー2', 'メンバー3', 'メンバー4'],
-  feeRates: { ヤフオク: 10, 'Yahoo!フリマ': 5 },
+  feeRates: { メルカリ: 10, 'Yahoo!フリマ': 5 },
   shipping: 210,
   costLimit: 4000,
   alertDays: 14,
+  history: [],
 };
 
 function loadLocal(key, fallback) {
@@ -19,9 +20,13 @@ function saveLocal(key, val) {
 
 export function useStore() {
   const [allItems, setAllItems] = useState(() => loadLocal('fuda_items', []));
-  const [config, setConfig] = useState(() => ({ ...DEFAULT_CONFIG, ...loadLocal('fuda_config', {}) }));
-  const [myName, setMyName] = useState(() => localStorage.getItem('fuda_myname') || '');
-  const [syncing, setSyncing] = useState(false);
+  const [config, setConfig]     = useState(() => ({ ...DEFAULT_CONFIG, ...loadLocal('fuda_config', {}) }));
+  const [myName, setMyName]     = useState(() => localStorage.getItem('fuda_myname') || '');
+  const [syncing, setSyncing]   = useState(false);
+
+  // Ref for stable access in callbacks
+  const allItemsRef = useRef(allItems);
+  useEffect(() => { allItemsRef.current = allItems; }, [allItems]);
 
   useEffect(() => { saveLocal('fuda_items', allItems); }, [allItems]);
   useEffect(() => { saveLocal('fuda_config', config); }, [config]);
@@ -60,12 +65,7 @@ export function useStore() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  const _upsert = useCallback(async (item) => {
-    setAllItems(prev => {
-      const idx = prev.findIndex(i => i.id === item.id);
-      if (idx === -1) return [...prev, item];
-      const copy = [...prev]; copy[idx] = item; return copy;
-    });
+  const _upsertItem = useCallback(async (item) => {
     if (isConfigured && supabase) {
       await supabase.from('items').upsert({ id: item.id, team: TEAM, data: item, updated_at: new Date().toISOString() });
     }
@@ -76,13 +76,15 @@ export function useStore() {
     const item = {
       id: genId(),
       name: fields.name,
-      platform: fields.platform || 'ヤフオク',
+      platform: fields.platform || 'メルカリ',
       url: fields.url || '',
       memo: fields.memo || '',
-      status: 'pending', // 保留中
+      status: 'pending',
       purchasePrice: null,
       salePrice: null,
+      currentPrice: null,
       priceHistory: [],
+      sellPlatform: null,
       createdBy: by,
       createdAt: now,
       updatedBy: by,
@@ -92,29 +94,27 @@ export function useStore() {
       soldAt: null,
       history: [{ by, at: now, action: '登録' }],
     };
-    _upsert(item);
+    setAllItems(prev => [...prev, item]);
+    _upsertItem(item);
     return item;
-  }, [_upsert]);
+  }, [_upsertItem]);
 
   const updateItem = useCallback((id, changes, by, action = '更新') => {
-    setAllItems(prev => {
-      const idx = prev.findIndex(i => i.id === id);
-      if (idx === -1) return prev;
-      const now = new Date().toISOString();
-      const updated = {
-        ...prev[idx],
-        ...changes,
-        updatedBy: by,
-        updatedAt: now,
-        history: [...(prev[idx].history || []), { by, at: now, action }],
-      };
-      const copy = [...prev]; copy[idx] = updated;
-      if (isConfigured && supabase) {
-        supabase.from('items').upsert({ id: updated.id, team: TEAM, data: updated, updated_at: now });
-      }
-      return copy;
-    });
-  }, []);
+    const now = new Date().toISOString();
+    const prev = allItemsRef.current;
+    const idx = prev.findIndex(i => i.id === id);
+    if (idx === -1) return;
+    const updated = {
+      ...prev[idx],
+      ...changes,
+      updatedBy: by,
+      updatedAt: now,
+      history: [...(prev[idx].history || []), { by, at: now, action }],
+    };
+    const copy = [...prev]; copy[idx] = updated;
+    setAllItems(copy);
+    _upsertItem(updated);
+  }, [_upsertItem]);
 
   const deleteItem = useCallback(async (id) => {
     setAllItems(prev => prev.filter(i => i.id !== id));
@@ -123,14 +123,21 @@ export function useStore() {
     }
   }, []);
 
-  const saveConfig = useCallback(async (cfg) => {
-    setConfig(cfg);
+  const saveConfig = useCallback(async (cfg, by, note) => {
+    const now = new Date().toISOString();
+    const historyEntry = by ? { by, at: now, note: note || '設定を変更' } : null;
+    const newCfg = {
+      ...cfg,
+      history: historyEntry
+        ? [...(cfg.history || []), historyEntry].slice(-50) // 最大50件
+        : (cfg.history || []),
+    };
+    setConfig(newCfg);
     if (isConfigured && supabase) {
-      await supabase.from('config').upsert({ team: TEAM, data: cfg });
+      await supabase.from('config').upsert({ team: TEAM, data: newCfg });
     }
   }, []);
 
-  // 有効なアイテム（却下40日経過除く）
   const items = allItems.filter(i => !isExpiredReject(i));
 
   return { items, allItems, config, myName, setMyName, syncing, addItem, updateItem, deleteItem, saveConfig, isConfigured };

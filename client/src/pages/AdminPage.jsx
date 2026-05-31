@@ -3,9 +3,9 @@ import { useStore, DEFAULT_CONFIG } from '../lib/store.js';
 
 export default function AdminPage() {
   const { config, myName, setMyName, saveConfig, items, deleteItem } = useStore();
-  const [form, setForm] = useState({ ...DEFAULT_CONFIG, ...config });
+  const [form, setForm]     = useState({ ...DEFAULT_CONFIG, ...config });
   const [localName, setLocalName] = useState(myName);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved]   = useState(false);
 
   const setMember = (i, v) => {
     const m = [...(form.members || [])];
@@ -14,13 +14,14 @@ export default function AdminPage() {
   };
 
   const handleSave = () => {
-    saveConfig(form);
+    saveConfig(form, localName || myName || '不明', '設定を変更');
     setMyName(localName);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   const rejectedItems = items.filter(i => i.status === 'rejected');
+  const configHistory = [...(config.history || [])].reverse().slice(0, 20);
 
   return (
     <div className="min-h-dvh flex flex-col max-w-lg mx-auto">
@@ -34,7 +35,6 @@ export default function AdminPage() {
 
       <main className="flex-1 px-4 pt-4 pb-10 flex flex-col gap-4">
 
-        {/* 自分の名前 */}
         <div className="glass rounded-2xl p-5">
           <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>自分の名前（この端末）</div>
           <select className="input-field" value={localName} onChange={e => setLocalName(e.target.value)} style={{fontFamily:'var(--font-ja)'}}>
@@ -43,7 +43,6 @@ export default function AdminPage() {
           </select>
         </div>
 
-        {/* メンバー */}
         <div className="glass rounded-2xl p-5">
           <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>チームメンバー</div>
           <div className="flex flex-col gap-2">
@@ -51,55 +50,49 @@ export default function AdminPage() {
               <div key={i} className="flex items-center gap-2">
                 <span className="text-xs text-slate-400 w-6 font-mono">{i+1}</span>
                 <input className="input-field" placeholder={`メンバー${i+1}`}
-                  value={(form.members || [])[i] || ''} onChange={e => setMember(i, e.target.value)}
+                  value={(form.members||[])[i]||''} onChange={e => setMember(i, e.target.value)}
                   style={{fontFamily:'var(--font-ja)'}} />
               </div>
             ))}
           </div>
         </div>
 
-        {/* 手数料率 */}
         <div className="glass rounded-2xl p-5">
           <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>手数料率 (%)</div>
           <div className="grid grid-cols-2 gap-3">
-            {['ヤフオク', 'Yahoo!フリマ'].map(p => (
+            {['メルカリ', 'Yahoo!フリマ'].map(p => (
               <div key={p}>
                 <label className="text-xs text-slate-400 mb-1 block" style={{fontFamily:'var(--font-ja)'}}>{p}</label>
                 <input className="input-field" type="number" min="0" max="100" step="0.1"
-                  value={(form.feeRates || {})[p] ?? 10}
+                  value={(form.feeRates||{})[p]??10}
                   onChange={e => setForm(f => ({ ...f, feeRates: { ...f.feeRates, [p]: parseFloat(e.target.value)||0 } }))} />
               </div>
             ))}
           </div>
         </div>
 
-        {/* 送料 */}
         <div className="glass rounded-2xl p-5">
           <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>初期送料 (¥)</div>
           <input className="input-field" type="number" min="0" inputMode="numeric"
-            value={form.shipping ?? 210}
+            value={form.shipping??210}
             onChange={e => setForm(f => ({ ...f, shipping: parseFloat(e.target.value)||0 }))} />
         </div>
 
-        {/* 仕入れ上限 */}
         <div className="glass rounded-2xl p-5">
           <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>仕入れ上限 (¥)</div>
           <input className="input-field" type="number" min="0" inputMode="numeric"
-            value={form.costLimit ?? 4000}
+            value={form.costLimit??4000}
             onChange={e => setForm(f => ({ ...f, costLimit: parseFloat(e.target.value)||0 }))} />
-          <p className="text-xs text-slate-400 mt-2" style={{fontFamily:'var(--font-ja)'}}>この金額を超えると③で警告が出ます</p>
         </div>
 
-        {/* 売り出し中アラート */}
         <div className="glass rounded-2xl p-5">
           <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>売り出し中アラート（日数）</div>
           <input className="input-field" type="number" min="1" inputMode="numeric"
-            value={form.alertDays ?? 14}
+            value={form.alertDays??14}
             onChange={e => setForm(f => ({ ...f, alertDays: parseInt(e.target.value)||14 }))} />
-          <p className="text-xs text-slate-400 mt-2" style={{fontFamily:'var(--font-ja)'}}>この日数以上売れていない商品を⚠️で警告します</p>
         </div>
 
-        {/* 却下リスト管理 */}
+        {/* 却下リスト */}
         {rejectedItems.length > 0 && (
           <div className="glass rounded-2xl p-5">
             <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>却下リスト（手動削除）</div>
@@ -121,6 +114,21 @@ export default function AdminPage() {
           style={{fontFamily:'var(--font-ja)'}}>
           {saved ? '✓ 保存しました' : '設定を保存（全員に反映）'}
         </button>
+
+        {/* 設定変更履歴 */}
+        {configHistory.length > 0 && (
+          <div className="glass rounded-2xl p-5">
+            <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>設定変更の履歴</div>
+            <div className="flex flex-col gap-2">
+              {configHistory.map((h, i) => (
+                <div key={i} className="flex gap-3 text-xs text-slate-500">
+                  <span className="font-mono text-slate-300 shrink-0">{new Date(h.at).toLocaleDateString('ja-JP')}</span>
+                  <span style={{fontFamily:'var(--font-ja)'}}>{h.by} — {h.note}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="pb-8" />
       </main>
