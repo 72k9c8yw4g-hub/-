@@ -7,7 +7,7 @@ export default function MainPage() {
   const [tab, setTab]     = useState('input');
   const [form, setForm]   = useState({ name: '', platform: 'メルカリ', url: '', memo: '' });
   const [submitted, setSubmitted] = useState(false);
-  const [modal, setModal] = useState(null); // item to show in detail modal
+  const [modal, setModal] = useState(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -24,7 +24,7 @@ export default function MainPage() {
     setForm({ name: '', platform: 'メルカリ', url: '', memo: '' });
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 2000);
-    setTab('list');
+    setTab('pending');
   };
 
   // 分析
@@ -74,11 +74,24 @@ export default function MainPage() {
       </header>
 
       {/* Tab bar */}
-      <div className="sticky top-[57px] z-20 glass border-b border-white/40 px-4 py-2 flex gap-2">
-        {[['input','入力'],['list','一覧'],['analytics','分析']].map(([id, label]) => (
+      <div className="sticky top-[57px] z-20 glass border-b border-white/40 px-2 py-2 flex gap-1 overflow-x-auto">
+        {[
+          ['input',   '入力',    null],
+          ['pending', '保留中',  pending.length],
+          ['selling', '売り出し', selling.length],
+          ['sold',    '売却済み', sold.length],
+          ['rejected','却下',    rejected.length],
+          ['analytics','分析',   null],
+        ].map(([id, label, count]) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${tab === id ? 'tab-active' : 'text-slate-500'}`}
-            style={{fontFamily:'var(--font-ja)'}}>{label}</button>
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1 ${tab === id ? 'tab-active' : 'text-slate-500'}`}
+            style={{fontFamily:'var(--font-ja)'}}>
+            {label}
+            {count !== null && count > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${tab === id ? 'bg-white/20' : 'bg-slate-200 text-slate-600'}`}>{count}</span>
+            )}
+            {id === 'selling' && alertItems.length > 0 && <span className="text-[10px] text-red-500 font-bold">⚠️</span>}
+          </button>
         ))}
       </div>
 
@@ -116,32 +129,76 @@ export default function MainPage() {
           </form>
         )}
 
-        {/* ── 一覧タブ ── */}
-        {tab === 'list' && (
-          <div className="flex flex-col gap-5 fade-in">
-            <Section title="保留中" count={pending.length} color="blue"
-              items={pending} onTap={setModal}
-              renderPreview={i => <span className="text-xs text-slate-400" style={{fontFamily:'var(--font-ja)'}}>{i.platform} · {i.createdBy}</span>} />
-            <Section title="売り出し中" count={selling.length} color="purple" alert={alertItems.length}
-              items={selling} onTap={setModal}
-              renderPreview={i => {
-                const days = daysAgo(i.purchasedAt);
-                return <span className={`text-xs ${days >= (config.alertDays||14) ? 'text-red-500 font-semibold' : 'text-slate-400'}`} style={{fontFamily:'var(--font-ja)'}}>
-                  {i.sellPlatform||i.platform} · 仕入れ¥{(i.purchasePrice||0).toLocaleString()} · {days}日目
-                </span>;
-              }} />
-            <Section title="売却済み" count={sold.length} color="green"
-              items={sold} onTap={setModal}
-              renderPreview={i => {
-                const { profit } = calcProfit({ purchasePrice: i.purchasePrice, salePrice: i.salePrice, platform: i.sellPlatform||i.platform, shipping: config.shipping, feeRates: config.feeRates });
-                return <span className={`text-xs font-mono font-bold ${profit >= 0 ? 'rank-honmei' : 'rank-over'}`}>
-                  {profit >= 0 ? '+' : ''}¥{profit.toLocaleString()}
-                </span>;
-              }} />
-            <Section title="却下" count={rejected.length} color="gray"
-              items={rejected} onTap={setModal}
-              renderPreview={i => <span className="text-xs text-slate-400" style={{fontFamily:'var(--font-ja)'}}>却下 {daysAgo(i.rejectedAt)}日前</span>} />
-          </div>
+        {/* ── 保留中タブ ── */}
+        {tab === 'pending' && (
+          <ItemList items={pending} empty="保留中の商品はありません"
+            renderCard={i => (
+              <button key={i.id} onClick={() => setModal(i)}
+                className="glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{i.name}</div>
+                  <div className="text-xs text-slate-400 mt-0.5" style={{fontFamily:'var(--font-ja)'}}>{i.platform} · {i.createdBy} · {new Date(i.createdAt).toLocaleDateString('ja-JP')}</div>
+                </div>
+                <span className="text-slate-300 text-xs shrink-0">›</span>
+              </button>
+            )} />
+        )}
+
+        {/* ── 売り出し中タブ ── */}
+        {tab === 'selling' && (
+          <ItemList items={selling} empty="売り出し中の商品はありません"
+            renderCard={i => {
+              const days = daysAgo(i.purchasedAt);
+              const alert = days >= (config.alertDays || 14);
+              const { profit: proj } = calcProfit({ purchasePrice: i.purchasePrice||0, salePrice: i.currentPrice||i.purchasePrice||0, platform: i.sellPlatform||i.platform, shipping: config.shipping, feeRates: config.feeRates });
+              return (
+                <button key={i.id} onClick={() => setModal(i)}
+                  className={`glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform ${alert ? 'ring-2 ring-red-200' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{i.name}</div>
+                    <div className={`text-xs mt-0.5 ${alert ? 'text-red-500 font-semibold' : 'text-slate-400'}`} style={{fontFamily:'var(--font-ja)'}}>
+                      {i.sellPlatform||i.platform} · 仕入れ¥{(i.purchasePrice||0).toLocaleString()} · {days}日目{alert ? ' ⚠️' : ''}
+                    </div>
+                  </div>
+                  <span className={`font-mono text-sm font-bold shrink-0 ${proj >= 0 ? 'rank-honmei' : 'rank-over'}`}>{proj >= 0 ? '+' : ''}¥{proj.toLocaleString()}</span>
+                </button>
+              );
+            }} />
+        )}
+
+        {/* ── 売却済みタブ ── */}
+        {tab === 'sold' && (
+          <ItemList items={sold} empty="売却済みの商品はありません"
+            renderCard={i => {
+              const { profit } = calcProfit({ purchasePrice: i.purchasePrice||0, salePrice: i.salePrice||0, platform: i.sellPlatform||i.platform, shipping: config.shipping, feeRates: config.feeRates });
+              return (
+                <button key={i.id} onClick={() => setModal(i)}
+                  className="glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{i.name}</div>
+                    <div className="text-xs text-slate-400 mt-0.5" style={{fontFamily:'var(--font-ja)'}}>
+                      {i.sellPlatform||i.platform} · {i.soldAt ? new Date(i.soldAt).toLocaleDateString('ja-JP') : ''}
+                    </div>
+                  </div>
+                  <span className={`font-mono text-sm font-bold shrink-0 ${profit >= 0 ? 'rank-honmei' : 'rank-over'}`}>{profit >= 0 ? '+' : ''}¥{profit.toLocaleString()}</span>
+                </button>
+              );
+            }} />
+        )}
+
+        {/* ── 却下タブ ── */}
+        {tab === 'rejected' && (
+          <ItemList items={rejected} empty="却下された商品はありません"
+            renderCard={i => (
+              <button key={i.id} onClick={() => setModal(i)}
+                className="glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform opacity-60">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{i.name}</div>
+                  <div className="text-xs text-slate-400 mt-0.5" style={{fontFamily:'var(--font-ja)'}}>却下 {daysAgo(i.rejectedAt)}日前 · {40 - daysAgo(i.rejectedAt)}日後に消える</div>
+                </div>
+                <span className="text-slate-300 text-xs shrink-0">›</span>
+              </button>
+            )} />
         )}
 
         {/* ── 分析タブ ── */}
@@ -221,48 +278,14 @@ export default function MainPage() {
   );
 }
 
-// ── Section ──────────────────────────────────────────────────
-const PREVIEW_COUNT = 1;
-
-function Section({ title, count, color, items, onTap, renderPreview, alert }) {
-  const [expanded, setExpanded] = useState(false);
-  const colors = { blue:'bg-blue-50 text-blue-600', purple:'bg-purple-50 text-purple-600', green:'bg-emerald-50 text-emerald-600', gray:'bg-slate-100 text-slate-500' };
-  const visible = expanded ? items : items.slice(0, PREVIEW_COUNT);
-  const rest = items.length - PREVIEW_COUNT;
-
+// ── ItemList ──────────────────────────────────────────────────
+function ItemList({ items, empty, renderCard }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${colors[color]}`} style={{fontFamily:'var(--font-ja)'}}>{title} {count}</span>
-        {alert > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold" style={{fontFamily:'var(--font-ja)'}}>⚠️ {alert}件遅延</span>}
-      </div>
-      <div className="flex flex-col gap-2">
-        {items.length === 0
-          ? <div className="text-xs text-slate-300 px-1" style={{fontFamily:'var(--font-ja)'}}>なし</div>
-          : <>
-              {visible.map(item => (
-                <button key={item.id} onClick={() => onTap(item)}
-                  className="glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{item.name}</div>
-                    <div className="mt-0.5">{renderPreview(item)}</div>
-                  </div>
-                  <span className="text-slate-300 text-xs shrink-0">›</span>
-                </button>
-              ))}
-              {rest > 0 && !expanded && (
-                <button onClick={() => setExpanded(true)}
-                  className="text-xs text-slate-400 text-left px-1 py-1 underline underline-offset-2"
-                  style={{fontFamily:'var(--font-ja)'}}>他 {rest}件を見る</button>
-              )}
-              {expanded && rest > 0 && (
-                <button onClick={() => setExpanded(false)}
-                  className="text-xs text-slate-400 text-left px-1 py-1 underline underline-offset-2"
-                  style={{fontFamily:'var(--font-ja)'}}>折りたたむ</button>
-              )}
-            </>
-        }
-      </div>
+    <div className="flex flex-col gap-2 fade-in">
+      {items.length === 0
+        ? <div className="glass rounded-2xl p-8 text-center text-slate-400 text-sm" style={{fontFamily:'var(--font-ja)'}}>{empty}</div>
+        : items.map(i => renderCard(i))
+      }
     </div>
   );
 }
