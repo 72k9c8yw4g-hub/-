@@ -118,6 +118,16 @@ body {
 .btn-ghost:hover  { background: rgba(0,0,0,0.04); }
 .btn-ghost:active { transform: scale(0.97); }
 
+/* ── Field label ── */
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+  font-family: var(--font-ja);
+}
+
 /* ── Input ── */
 .input-field {
   background: rgba(255,255,255,0.9);
