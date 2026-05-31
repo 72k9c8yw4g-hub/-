@@ -20,7 +20,13 @@ export default function AdminPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const rejectedItems = items.filter(i => i.status === 'rejected');
+  const statusGroups = [
+    { key: 'pending',  label: '保留中' },
+    { key: 'selling',  label: '売り出し中' },
+    { key: 'sold',     label: '売却済み' },
+    { key: 'rejected', label: '却下' },
+  ].map(g => ({ ...g, items: items.filter(i => i.status === g.key) }))
+   .filter(g => g.items.length > 0);
   const configHistory = [...(config.history || [])].reverse().slice(0, 20);
 
   return (
@@ -92,17 +98,24 @@ export default function AdminPage() {
             onChange={e => setForm(f => ({ ...f, alertDays: parseInt(e.target.value)||14 }))} />
         </div>
 
-        {/* 却下リスト */}
-        {rejectedItems.length > 0 && (
+        {/* 商品削除 */}
+        {statusGroups.length > 0 && (
           <div className="glass rounded-2xl p-5">
-            <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>却下リスト（手動削除）</div>
-            <div className="flex flex-col gap-2">
-              {rejectedItems.map(item => (
-                <div key={item.id} className="flex items-center gap-2">
-                  <span className="flex-1 text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{item.name}</span>
-                  <button onClick={() => { if(confirm('削除しますか？')) deleteItem(item.id); }}
-                    className="text-xs text-red-500 border border-red-200 px-2 py-1 rounded-lg shrink-0"
-                    style={{fontFamily:'var(--font-ja)'}}>削除</button>
+            <div className="text-sm font-bold text-slate-600 mb-3" style={{fontFamily:'var(--font-ja)'}}>商品の削除</div>
+            <div className="flex flex-col gap-4">
+              {statusGroups.map(g => (
+                <div key={g.key}>
+                  <div className="text-xs text-slate-400 font-semibold mb-2" style={{fontFamily:'var(--font-ja)'}}>{g.label}</div>
+                  <div className="flex flex-col gap-2">
+                    {g.items.map(item => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <span className="flex-1 text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{item.name}</span>
+                        <button onClick={() => { if(confirm(`「${item.name}」を削除しますか？`)) deleteItem(item.id); }}
+                          className="text-xs text-red-500 border border-red-200 px-2 py-1 rounded-lg shrink-0"
+                          style={{fontFamily:'var(--font-ja)'}}>削除</button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
