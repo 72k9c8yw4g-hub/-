@@ -4,21 +4,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        orbitron: ['Orbitron', 'sans-serif'],
-        rajdhani: ['Rajdhani', 'sans-serif'],
-      },
-      colors: {
-        neon: {
-          pink: '#ff3366',
-          cyan: '#33ffcc',
-          yellow: '#ffcc00',
-          purple: '#cc33ff',
-          blue: '#33ccff',
-        },
-      },
-      boxShadow: {
-        neon: '0 0 20px currentColor, 0 0 40px currentColor',
-        'neon-sm': '0 0 10px currentColor',
+        display: ['Bricolage Grotesque', 'sans-serif'],
+        body:    ['Hanken Grotesk', 'Zen Kaku Gothic New', 'sans-serif'],
+        mono:    ['JetBrains Mono', 'monospace'],
+        ja:      ['Zen Kaku Gothic New', 'sans-serif'],
       },
     },
   },

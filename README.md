@@ -1,73 +1,102 @@
-# NEON RACER 🏎️
+# FUDA — ポケカ仕入れ判定アプリ
 
-A high-energy 3D multiplayer racing game built with React, Three.js, and Socket.io.
+中学生4人チームのためのポケモンカード物販 意思決定・記録Webアプリ。  
+リアルタイム共有（Supabase）つき。スマホ・PC両対応。
 
-## Features
+## 機能
 
-- **Real-time multiplayer** — up to 6 players per race via unique 6-character room codes
-- **3D track** — circular neon-lit circuit built with Three.js / React Three Fiber
-- **Smooth physics** — acceleration, braking, drift, track boundary constraints
-- **Cyberpunk UI** — Tailwind CSS with neon glow effects, glassmorphism cards, animated grid
-- **Live HUD** — speed gauge, lap counter, position tracker, minimap, live standings
-- **Race lifecycle** — lobby → countdown → race → results → restart
+- **商品入力** — 商品名・仕入れ価格・想定売値・出品先を入力すると純利益・手数料をリアルタイム計算
+- **判断** — 買い候補 / 保留 / 却下 の3択 + おすすめバッジ（本命・実験枠・対象外・上限オーバー）
+- **一覧** — 純利益順ソート・ステータスフィルタ・タップで判断変更・結果入力・変更履歴
+- **分析** — 利益分布・成功率・ステータス別件数
+- **設定** — メンバー名・手数料率・送料・しきい値・仕入れ上限（チーム全体に反映）
+- **リアルタイム共有** — Supabase Realtime で全端末に即時反映
 
-## Tech Stack
+## 計算ロジック
 
-| Layer | Tech |
+| 出品先 | 手数料率 |
 |---|---|
-| Frontend 3D | React Three Fiber + Three.js |
-| Frontend UI | React + Tailwind CSS |
-| Realtime | Socket.io |
-| Backend | Node.js + Express + Socket.io |
-| Build | Vite |
+| ヤフオク | 10% |
+| Yahoo!フリマ | 5% |
 
-## Getting Started
+- 手数料 = 想定売値 × 手数料率（四捨五入）
+- 純利益 = 想定売値 − 仕入れ価格 − 手数料 − 送料
+
+| 条件 | ランク |
+|---|---|
+| 仕入れ > 4,000円 | 上限オーバー（警告） |
+| 純利益 ≥ 500円 | 本命（買い候補推奨） |
+| 純利益 80〜499円 | 実験枠 |
+| 純利益 < 80円 | 対象外 |
+
+## セットアップ
+
+### 1. Supabase プロジェクトを作る
+
+1. [supabase.com](https://supabase.com) でプロジェクトを作成
+2. **SQL Editor** で `supabase-setup.sql` の内容を実行
+3. **Project Settings > API** から Project URL と anon key をコピー
+
+### 2. 環境変数を設定
 
 ```bash
-# Install all dependencies
-npm run install:all
+cd client
+cp .env.example .env
+# .env を編集して URL と anon key を入力
+```
 
-# Run both server and client in dev mode
+```env
+VITE_SUPABASE_URL=https://xxxxxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_TEAM=fuda-team   # チームの合言葉（4人で同じ文字列にする）
+```
+
+### 3. ローカル起動
+
+```bash
+cd client
+npm install
 npm run dev
+# → http://localhost:5173
 ```
 
-- **Game client**: http://localhost:5173
-- **API server**: http://localhost:3001
+### 4. デプロイ（Netlify / Vercel）
 
-## Controls
+**Netlify:**
+1. [netlify.com](https://netlify.com) でサインイン → **Add new site > Import an existing project**
+2. このリポジトリを接続、ビルド設定：
+   - Base directory: `client`
+   - Build command: `npm run build`
+   - Publish directory: `client/dist`
+3. **Environment variables** に `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TEAM` を追加
+4. Deploy → 公開URLが発行される
 
-| Key | Action |
+**Vercel:**
+```bash
+cd client
+npx vercel --prod
+# 環境変数は Vercel ダッシュボードで設定
+```
+
+### 4人への共有
+
+1. 上記で取得した公開URLをLINEなどで共有
+2. 各自が「設定」タブで自分の名前を選択
+3. 同じ `VITE_TEAM` の合言葉を使っていれば自動でリアルタイム共有される
+
+## ログイン強化（後日）
+
+現状は合言葉ベースの仲間内フルアクセス。後日ログイン必須にする場合：
+
+1. Supabase Auth でメールマジックリンク or Google OAuth を有効化
+2. RLSポリシーを `auth.uid()` ベースに変更（例: `using (auth.uid() = (data->>'userId')::uuid)`）
+3. フロントに `supabase.auth.signInWithOtp()` または `signInWithOAuth()` を追加
+
+## 技術スタック
+
+| レイヤー | 技術 |
 |---|---|
-| W / ↑ | Accelerate |
-| S / ↓ | Brake / Reverse |
-| A / ← | Steer left |
-| D / → | Steer right |
-
-## How to Play
-
-1. Open the game at `localhost:5173`
-2. Enter your driver name and click **CREATE RACE** or **JOIN RACE**
-3. Share the 6-character room code with friends
-4. The host clicks **START RACE** to begin
-5. Complete **3 laps** to win — the race ends when all players finish
-
-## Architecture
-
-```
-/
-├── server/          # Express + Socket.io backend
-│   └── index.js     # Room management, game state, real-time sync
-└── client/          # React frontend
-    └── src/
-        ├── App.jsx                  # Root state + socket lifecycle
-        ├── screens/
-        │   ├── HomeScreen.jsx       # Create/join UI
-        │   └── LobbyScreen.jsx      # Pre-race lobby
-        └── game/
-            ├── GameScreen.jsx       # Game container + results
-            ├── GameCanvas.jsx       # R3F canvas, physics loop, camera
-            ├── Track.jsx            # 3D circular track geometry
-            ├── Car.jsx              # Car model (unused, logic in Canvas)
-            ├── HUD.jsx              # Speed, laps, minimap overlay
-            └── physics.js           # Car physics + lap detection
-```
+| フロント | React + Vite |
+| スタイル | Tailwind CSS + カスタムCSS |
+| バックエンド | Supabase (Postgres + Realtime) |
+| フォント | Bricolage Grotesque, Hanken Grotesk, JetBrains Mono, Zen Kaku Gothic New |
