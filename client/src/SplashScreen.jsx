@@ -1,304 +1,472 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-/* ── Bokeh particle field ─────────────────────────────────────── */
-function Particles() {
-  const ref = useRef(null);
+/* ─── visit tracking ─────────────────────────────────────────── */
+const SEEN_KEY = 'ixp_v1';
+const isFresh = () => { try { return !localStorage.getItem(SEEN_KEY); } catch { return true; } };
+const markSeen = () => { try { localStorage.setItem(SEEN_KEY, '1'); } catch {} };
+const prefersReduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/* ─── world rule: white architectural wireframes on near-black ── */
+
+/* ─── camera keyframes ───────────────────────────────────────── */
+/* [t, camX, camY, camZ, targetX, targetY, targetZ, fov] */
+/* Letters: I=0, x=460, y=920, P=1480, i=1940, x=2400, y=2860 */
+/* Center ≈ 1430 */
+const CAM = [
+  /* inside I — looking up the vertical shaft */
+  [0.00,   30, -210,  70,    0,  200,   0,  86],
+  [0.08,  -20,  180,  45,    0,  -60, -180, 78],
+  /* approaching x crossing */
+  [0.17,  260,   70, 130,  460,    0,   0,  74],
+  /* flying through x intersection */
+  [0.25,  460,  100,  20,  460,  -30, -380, 68],
+  /* below y junction */
+  [0.33,  680, -250, 105,  920,   80,   0,  72],
+  /* through y fork */
+  [0.41,  920,  200,  40,  920,  -20, -280, 66],
+  /* approaching P arch from the side */
+  [0.49, 1180,   90, 190, 1480,    0,   0,  70],
+  /* orbit around the P curve */
+  [0.57, 1680,  -50, 110, 1480,   60, -180, 63],
+  /* i — camera above the dot, looking down the stem */
+  [0.63, 1940,  370,  85, 1940,    0,   0,  67],
+  /* second x */
+  [0.69, 2200,  130,  95, 2400,    0,   0,  63],
+  /* second y */
+  [0.75, 2620,  160,  75, 2860,  -30,   0,  60],
+  /* ── PULL BACK ── */
+  [0.82, 1430,   80, 360, 1430,    0,   0,  58],
+  [0.89, 1430,   50,1500, 1430,    0,   0,  50],
+  [0.96, 1430,   20,3000, 1430,    0,   0,  43],
+  [1.00, 1430,   10,3400, 1430,    0,   0,  40],
+];
+
+/* ─── scene builder ──────────────────────────────────────────── */
+function buildWorld(THREE, canvas, onReveal, onComplete) {
+  const getW = () => canvas.clientWidth  || window.innerWidth;
+  const getH = () => canvas.clientHeight || window.innerHeight;
+
+  /* renderer */
+  const renderer = new THREE.WebGLRenderer({
+    canvas, antialias: true, powerPreference: 'high-performance',
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(getW(), getH());
+
+  /* scene */
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x06060A);
+  const fogObj = new THREE.FogExp2(0x06060A, 0.00026);
+  scene.fog = fogObj;
+
+  /* camera */
+  const cam = new THREE.PerspectiveCamera(86, getW() / getH(), 1, 10000);
+
+  /* ── material helpers ─────────────────────────────────────── */
+  const lineMat = (op = 0.88) => new THREE.LineBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: op,
+  });
+
+  /* oriented beam A→B with box cross-section */
+  function beam(parent, ax, ay, az, bx, by, bz, thick = 26, op = 0.88) {
+    const A = new THREE.Vector3(ax, ay, az);
+    const B = new THREE.Vector3(bx, by, bz);
+    const dir = new THREE.Vector3().subVectors(B, A);
+    const len = dir.length();
+    if (len < 0.5) return null;
+    const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(thick, len, thick));
+    const seg = new THREE.LineSegments(geo, lineMat(op));
+    seg.position.copy(A).lerp(B, 0.5);
+    seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    parent.add(seg);
+    return seg;
+  }
+
+  /* box frame */
+  function boxFrame(parent, x, y, z, w, h, d, op = 0.88) {
+    const seg = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)),
+      lineMat(op),
+    );
+    seg.position.set(x, y, z);
+    parent.add(seg);
+    return seg;
+  }
+
+  /* arc in XY plane */
+  function arc(parent, cx, cy, cz, r, a0, a1, segs = 72, op = 0.88) {
+    const pts = [];
+    for (let i = 0; i <= segs; i++) {
+      const a = a0 + (i / segs) * (a1 - a0);
+      pts.push(new THREE.Vector3(cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz));
+    }
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts), lineMat(op),
+    );
+    parent.add(line);
+    return line;
+  }
+
+  /* ── letter geometry ──────────────────────────────────────── */
+  const S = 280;   /* half-height of letters */
+  const G = 460;   /* horizontal spacing center-to-center */
+
+  /* Letter X positions */
+  const LC = [0, G, 2*G, 3.2*G, 4.2*G, 5.2*G, 6.2*G];
+  /* [I, x, y, P, i, x, y] */
+
+  const world = new THREE.Group();
+  scene.add(world);
+
+  /* ── I — tower with cross-beams ─── */
+  {
+    const cx = LC[0];
+    beam(world, cx, -S,    0, cx,  S,    0, 38);       /* main spine */
+    beam(world, cx-130,  S, 0, cx+130,  S, 0, 28);     /* top bar */
+    beam(world, cx-130, -S, 0, cx+130, -S, 0, 28);     /* bottom bar */
+    /* 3D depth — parallel offset beams give thickness */
+    beam(world, cx, -S, -28, cx, S, -28, 18, 0.42);
+    beam(world, cx, -S,  28, cx, S,  28, 18, 0.42);
+    beam(world, cx-130,  S, -28, cx+130,  S, -28, 20, 0.30);
+    beam(world, cx-130, -S, -28, cx+130, -S, -28, 20, 0.30);
+  }
+
+  /* ── x — two diagonal crossing beams ─── */
+  {
+    const cx = LC[1];
+    const arm = S * 0.88;
+    beam(world, cx-arm, -arm, 0, cx+arm, arm,  0, 36);   /* / */
+    beam(world, cx+arm, -arm, 0, cx-arm, arm,  0, 36);   /* \ */
+    beam(world, cx-arm, -arm, 28, cx+arm, arm, 28, 16, 0.38);
+    beam(world, cx+arm, -arm, 28, cx-arm, arm, 28, 16, 0.38);
+    /* structural node at intersection */
+    boxFrame(world, cx, 0, 0, 48, 48, 52, 0.65);
+  }
+
+  /* ── y — fork junction ─── */
+  {
+    const cx = LC[2];
+    const tw = S * 0.68;
+    beam(world, cx-tw,  S, 0, cx,    0, 0, 34);           /* left arm */
+    beam(world, cx+tw,  S, 0, cx,    0, 0, 34);           /* right arm */
+    beam(world, cx,     0, 0, cx-tw*0.45, -S, 0, 34);     /* descending tail */
+    beam(world, cx-tw*0.9, S, 26, cx, 0, 26, 15, 0.36);
+    beam(world, cx+tw*0.9, S, 26, cx, 0, 26, 15, 0.36);
+  }
+
+  /* ── P — vertical spine + D arch ─── */
+  {
+    const cx    = LC[3];
+    const spX   = cx - 60;          /* spine left of center */
+    const archCY = S * 0.28;
+    const archR  = S * 0.72;
+    beam(world, spX, -S, 0, spX, S, 0, 38);                       /* spine */
+    arc(world, spX, archCY, 0, archR, -Math.PI/2, Math.PI/2, 72, 0.86); /* D-arch */
+    beam(world, spX, archCY+archR, 0, spX, archCY-archR, 0, 22, 0.50);  /* chord */
+    /* depth copy */
+    arc(world, spX, archCY, -32, archR*0.94, -Math.PI/2, Math.PI/2, 48, 0.28);
+    beam(world, spX, -S, -28, spX, S, -28, 16, 0.36);
+  }
+
+  /* ── i — stem + floating dot cap ─── */
+  {
+    const cx  = LC[4];
+    const dotY = S * 0.82;
+    beam(world, cx, -S, 0, cx, dotY - S*0.14, 0, 34);  /* stem */
+    boxFrame(world, cx, dotY + 28, 0, 76, 48, 52, 0.88); /* dot */
+    beam(world, cx, -S, 22, cx, dotY - S*0.14, 22, 15, 0.36);
+  }
+
+  /* ── x (second) ─── */
+  {
+    const cx = LC[5];
+    const arm = S * 0.88;
+    beam(world, cx-arm, -arm,  0, cx+arm, arm,  0, 36);
+    beam(world, cx+arm, -arm,  0, cx-arm, arm,  0, 36);
+    beam(world, cx-arm, -arm, -28, cx+arm, arm, -28, 16, 0.36);
+    beam(world, cx+arm, -arm, -28, cx-arm, arm, -28, 16, 0.36);
+    boxFrame(world, cx, 0, 0, 48, 48, 52, 0.65);
+  }
+
+  /* ── y (second) ─── */
+  {
+    const cx = LC[6];
+    const tw = S * 0.68;
+    beam(world, cx-tw, S, 0, cx,  0, 0, 34);
+    beam(world, cx+tw, S, 0, cx,  0, 0, 34);
+    beam(world, cx, 0, 0, cx-tw*0.45, -S, 0, 34);
+    beam(world, cx-tw*0.9, S, -26, cx, 0, -26, 15, 0.36);
+    beam(world, cx+tw*0.9, S, -26, cx, 0, -26, 15, 0.36);
+  }
+
+  /* ── background world — hinted structures far behind ──────── */
+  /* Seeded so they look intentional, not random noise */
+  const BG_HINTS = [
+    [-200, -100, -800,  40, 320,  40],
+    [ 600,  300,-1200,  30, 200,  30],
+    [1100, -400, -900,  60, 180,  60],
+    [1800,  200,-1500,  35, 420,  35],
+    [2200, -300,-1100,  45, 260,  45],
+    [3000,  150,-1800,  30, 380,  30],
+    [-300,  250,-2200,  55, 150,  55],
+    [ 900, -200,-2500,  40, 290,  40],
+    [2800, -150,-2000,  50, 200,  50],
+    [1400,  400,-3000,  35, 340,  35],
+    [ 400, -350,-1600,  28, 480,  28],
+    [2100,  350,-2800,  42, 160,  42],
+  ];
+  for (const [gx, gy, gz, gw, gh, gd] of BG_HINTS) {
+    boxFrame(world, gx, gy, gz, gw, gh, gd, 0.08 + Math.random() * 0.07);
+  }
+
+  /* ── grid floor — very faint depth reference ───────────────── */
+  {
+    const sz = 9000, div = 22, step = sz / div;
+    const pts = [];
+    for (let i = 0; i <= div; i++) {
+      const v = -sz / 2 + i * step;
+      pts.push(new THREE.Vector3(v, -S - 45, -sz / 2));
+      pts.push(new THREE.Vector3(v, -S - 45,  sz / 2));
+      pts.push(new THREE.Vector3(-sz / 2, -S - 45, v));
+      pts.push(new THREE.Vector3( sz / 2, -S - 45, v));
+    }
+    const grid = new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      lineMat(0.04),
+    );
+    scene.add(grid);
+  }
+
+  /* ── camera animation ─────────────────────────────────────── */
+  const DURATION = 10000; /* ms for full sequence */
+  let t0 = null;
+  let revealFired = false;
+  let completeFired = false;
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ss   = t => t * t * (3 - 2 * t);
+
+  function camState(p) {
+    p = Math.max(0, Math.min(1, p));
+    let i = 0;
+    while (i < CAM.length - 2 && CAM[i + 1][0] <= p) i++;
+    const ka = CAM[i], kb = CAM[i + 1];
+    const span = kb[0] - ka[0];
+    const t = span < 0.0001 ? 1 : ss((p - ka[0]) / span);
+    return {
+      px: lerp(ka[1], kb[1], t), py: lerp(ka[2], kb[2], t), pz: lerp(ka[3], kb[3], t),
+      tx: lerp(ka[4], kb[4], t), ty: lerp(ka[5], kb[5], t), tz: lerp(ka[6], kb[6], t),
+      fov: lerp(ka[7], kb[7], t),
+    };
+  }
+
+  const onResize = () => {
+    cam.aspect = getW() / getH();
+    cam.updateProjectionMatrix();
+    renderer.setSize(getW(), getH());
+  };
+  window.addEventListener('resize', onResize);
+
+  let disposed = false;
+  let raf;
+
+  function draw(ts) {
+    if (disposed) return;
+    raf = requestAnimationFrame(draw);
+    if (t0 === null) t0 = ts;
+    const p = Math.min((ts - t0) / DURATION, 1);
+
+    const cs = camState(p);
+    cam.position.set(cs.px, cs.py, cs.pz);
+    cam.lookAt(cs.tx, cs.ty, cs.tz);
+    cam.fov = cs.fov;
+    cam.updateProjectionMatrix();
+
+    /* gradually clear fog during pull-back for reveal clarity */
+    if (p > 0.80) {
+      fogObj.density = 0.00026 * (1 - ((p - 0.80) / 0.20) * 0.72);
+    }
+
+    renderer.render(scene, cam);
+
+    if (p >= 0.83 && !revealFired) {
+      revealFired = true;
+      onReveal();
+    }
+    if (p >= 1 && !completeFired) {
+      completeFired = true;
+      setTimeout(onComplete, 1200);
+    }
+  }
+
+  raf = requestAnimationFrame(draw);
+
+  return () => {
+    disposed = true;
+    cancelAnimationFrame(raf);
+    window.removeEventListener('resize', onResize);
+    renderer.dispose();
+  };
+}
+
+/* ─── main component ─────────────────────────────────────────── */
+export default function SplashScreen({ onDone }) {
+  const canvasRef = useRef(null);
+  const [fresh]   = useState(isFresh);
+  const [reduced] = useState(prefersReduced);
+  const [phase, setPhase] = useState('init'); /* init | playing | reveal | exit */
+  const [showSkip, setShowSkip] = useState(false);
+
   useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    let raf;
-    const resize = () => {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
+    markSeen();
+
+    /* returning visitor or reduced-motion: quick branded fade */
+    if (!fresh || reduced) {
+      setPhase('reveal');
+      const t = setTimeout(() => {
+        setPhase('exit');
+        setTimeout(() => onDone?.(), 700);
+      }, fresh ? 1600 : 500);
+      return () => clearTimeout(t);
+    }
+
+    /* skip button appears after 2.5s */
+    const skipT = setTimeout(() => setShowSkip(true), 2500);
+
+    const canvas = canvasRef.current;
+    if (!canvas) { clearTimeout(skipT); return; }
+
+    let cleanup;
+
+    import('three').then((THREE) => {
+      cleanup = buildWorld(
+        THREE,
+        canvas,
+        () => setPhase('reveal'),
+        () => {
+          setPhase('exit');
+          setTimeout(() => onDone?.(), 900);
+        },
+      );
+      setPhase('playing');
+    });
+
+    return () => {
+      clearTimeout(skipT);
+      cleanup?.();
     };
-    resize();
-    window.addEventListener('resize', resize);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const N = 60;
-    const ps = Array.from({ length: N }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight + window.innerHeight * 0.3,
-      r: 3 + Math.random() * 22,
-      speed: 0.15 + Math.random() * 0.35,
-      opacity: 0.03 + Math.random() * 0.16,
-      drift: (Math.random() - 0.5) * 0.25,
-    }));
-
-    const draw = () => {
-      const W = canvas.width, H = canvas.height;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, W, H);
-      for (const p of ps) {
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-        g.addColorStop(0,   `rgba(180,215,255,${p.opacity})`);
-        g.addColorStop(0.5, `rgba(130,185,255,${p.opacity * 0.35})`);
-        g.addColorStop(1,   `rgba(80,140,255,0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-        p.y -= p.speed;
-        p.x += p.drift;
-        if (p.y + p.r < 0)  { p.y = H + p.r; p.x = Math.random() * W; }
-        if (p.x < -p.r)       p.x = W + p.r;
-        if (p.x > W + p.r)    p.x = -p.r;
-      }
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
-  }, []);
-
-  return (
-    <canvas ref={ref} style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none' }} />
-  );
-}
-
-/* ── Expansion ring ───────────────────────────────────────────── */
-function Ring({ delay }) {
-  return (
-    <div style={{
-      position: 'absolute',
-      width: 100, height: 100,
-      borderRadius: '50%',
-      border: '1px solid rgba(150,200,255,0.30)',
-      boxShadow: '0 0 10px rgba(120,180,255,0.12)',
-      animation: `sp-ring-expand 5s cubic-bezier(0.1,0.3,0.6,1) ${delay}s infinite`,
-      pointerEvents: 'none',
-    }} />
-  );
-}
-
-/* ── 3D extruded glass FUDA logo ──────────────────────────────── */
-const DEPTH_LAYERS = 9;
-
-function Logo3D({ tiltX, tiltY, emerged }) {
-  const FONT_STYLE = {
-    fontFamily: 'var(--font-display)',
-    fontSize: 'clamp(72px, 20vw, 124px)',
-    fontWeight: 900,
-    lineHeight: 1,
-    letterSpacing: '0.10em',
-    userSelect: 'none',
-    whiteSpace: 'nowrap',
-    display: 'block',
+  const handleSkip = () => {
+    setPhase('reveal');
+    setTimeout(() => {
+      setPhase('exit');
+      setTimeout(() => onDone?.(), 700);
+    }, 1600);
   };
 
-  const frontGradient = `linear-gradient(
-    168deg,
-    rgba(255,255,255,0.98)  0%,
-    rgba(200,225,255,0.85) 10%,
-    rgba(255,255,255,0.62) 20%,
-    rgba(22,32,55,0.90)    30%,
-    rgba(170,210,252,0.68) 40%,
-    rgba(255,255,255,0.95) 52%,
-    rgba(35,50,80,0.78)    62%,
-    rgba(195,220,255,0.70) 72%,
-    rgba(255,255,255,0.92) 84%,
-    rgba(175,205,250,0.78) 92%,
-    rgba(255,255,255,0.90) 100%
-  )`;
-
-  return (
-    <div style={{
-      position: 'relative',
-      transformStyle: 'preserve-3d',
-      transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`,
-      transition: emerged ? 'transform 0.12s linear' : 'none',
-    }}>
-      {/* Extrusion layers — back to front, simulate glass depth */}
-      {Array.from({ length: DEPTH_LAYERS }, (_, i) => {
-        const z = -(i + 1) * 3;
-        const t = 1 - i / DEPTH_LAYERS;
-        const r = Math.round(30 + t * 60);
-        const g = Math.round(55 + t * 80);
-        const b = Math.round(110 + t * 90);
-        const a = (0.50 + t * 0.25).toFixed(2);
-        return (
-          <div key={i} style={{
-            ...FONT_STYLE,
-            position: 'absolute',
-            top: 0, left: 0,
-            transform: `translateZ(${z}px)`,
-            background: `rgba(${r},${g},${b},${a})`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            filter: `blur(${i * 0.2}px)`,
-          }}>FUDA</div>
-        );
-      })}
-
-      {/* Front face — glass gradient */}
+  /* ── returning visitor: minimal branded fade ── */
+  if (!fresh) {
+    return (
       <div style={{
-        ...FONT_STYLE,
-        position: 'relative',
-        transform: 'translateZ(0px)',
-        background: frontGradient,
-        backgroundSize: '300% 100%',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        filter: 'drop-shadow(0 0 28px rgba(150,200,255,0.48))',
-        animation: emerged ? 'sp-reflect 5s linear 0s infinite' : 'none',
-      }}>FUDA</div>
-
-      {/* Specular highlight — bright rim along top edge */}
-      <div style={{
-        ...FONT_STYLE,
-        position: 'absolute',
-        top: 0, left: 0,
-        transform: 'translateZ(1px)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.60) 0%, rgba(255,255,255,0) 30%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        pointerEvents: 'none',
-      }}>FUDA</div>
-    </div>
-  );
-}
-
-/* ── Main splash screen ───────────────────────────────────────── */
-export default function SplashScreen({ onDone }) {
-  const [phase, setPhase]     = useState('enter');
-  const [emerged, setEmerged] = useState(false);
-  const [tiltX, setTiltX]     = useState(0);
-  const [tiltY, setTiltY]     = useState(0);
-  const wrapRef = useRef(null);
-
-  useEffect(() => {
-    const t1 = setTimeout(() => setEmerged(true), 2100);
-    const t2 = setTimeout(() => setPhase('exit'), 4500);
-    const t3 = setTimeout(() => onDone?.(), 5200);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [onDone]);
-
-  const handlePointer = useCallback((ex, ey) => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const nx = (ex - (rect.left + rect.width  / 2)) / (rect.width  / 2);
-    const ny = (ey - (rect.top  + rect.height / 2)) / (rect.height / 2);
-    setTiltY( nx * 15);
-    setTiltX(-ny * 10);
-  }, []);
-
-  useEffect(() => {
-    const onMove  = e => handlePointer(e.clientX, e.clientY);
-    const onTouch = e => { if (e.touches[0]) handlePointer(e.touches[0].clientX, e.touches[0].clientY); };
-    const onLeave = () => { setTiltX(0); setTiltY(0); };
-    window.addEventListener('mousemove',  onMove);
-    window.addEventListener('touchmove',  onTouch, { passive: true });
-    window.addEventListener('mouseleave', onLeave);
-    return () => {
-      window.removeEventListener('mousemove',  onMove);
-      window.removeEventListener('touchmove',  onTouch);
-      window.removeEventListener('mouseleave', onLeave);
-    };
-  }, [handlePointer]);
-
-  return (
-    <div
-      ref={wrapRef}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: '#000000',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
+        position: 'fixed', inset: 0, background: '#06060A',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 9999,
-        animation: phase === 'exit'
-          ? 'sp-out 0.7s cubic-bezier(0.4,0,1,1) both'
-          : 'sp-in 0.5s ease both',
-      }}
-    >
-      {/* Ambient glow */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 75% 60% at 50% 50%, rgba(28,48,88,0.60) 0%, rgba(8,14,28,0.85) 60%, transparent 100%)',
-      }} />
-
-      <Particles />
-
-      {/* Expansion rings */}
-      <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none' }}>
-        <Ring delay={0.6} />
-        <Ring delay={1.8} />
-        <Ring delay={3.0} />
-      </div>
-
-      {/* Scan line */}
-      <div style={{
-        position: 'absolute', left: 0, right: 0, height: 2,
-        background: 'linear-gradient(90deg, transparent 0%, rgba(155,210,255,0.07) 15%, rgba(200,235,255,0.50) 50%, rgba(155,210,255,0.07) 85%, transparent 100%)',
-        boxShadow: '0 0 18px rgba(140,200,255,0.32)',
-        animation: 'sp-scan 5s ease-in-out 1.5s infinite',
-        pointerEvents: 'none',
-      }} />
-
-      {/* Content */}
-      <div style={{
-        position: 'relative',
-        zIndex: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '1.4rem',
-        width: '100vw',
-        overflow: 'hidden',
-        padding: '0 8px',
+        opacity: phase === 'exit' ? 0 : 1,
+        transition: 'opacity 0.6s ease',
+        animation: 'sp-in 0.4s ease both',
       }}>
-
-        {/* Perspective wrapper + emerge animation */}
-        <div style={{
-          perspective: '900px',
-          perspectiveOrigin: '50% 50%',
-          display: 'flex',
-          justifyContent: 'center',
-          animation: 'sp-emerge 1.7s cubic-bezier(0.16,1,0.3,1) 0.4s both',
-        }}>
-          <Logo3D tiltX={tiltX} tiltY={tiltY} emerged={emerged} />
-        </div>
-
-        {/* Divider */}
-        <div style={{
-          width: 'clamp(55px,10vw,80px)', height: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(155,200,255,0.50), transparent)',
-          animation: 'sp-sub 0.6s ease 2.3s both',
-        }} />
-
-        {/* IxyPixy */}
         <div style={{
           fontFamily: 'var(--font-display)',
-          fontSize: 'clamp(10px,2.2vw,14px)',
-          fontWeight: 500,
-          letterSpacing: '0.32em',
-          textTransform: 'uppercase',
-          color: 'rgba(155,200,255,0.72)',
-          animation: 'sp-sub 0.8s ease 2.6s both',
-          userSelect: 'none',
-        }}>IxyPixy</div>
+          fontSize: 'clamp(22px, 5.5vw, 44px)',
+          fontWeight: 700,
+          letterSpacing: '0.20em',
+          color: 'rgba(255,255,255,0.88)',
+          animation: 'sp-sub 0.6s ease 0.1s both',
+        }}>
+          IxyPixy
+        </div>
+      </div>
+    );
+  }
 
-        {/* Japanese subtitle */}
+  /* ── full first-visit experience ── */
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: '#06060A',
+      opacity: phase === 'exit' ? 0 : 1,
+      transition: phase === 'exit' ? 'opacity 0.9s ease' : undefined,
+    }}>
+      {/* Three.js canvas — the 3D world */}
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+      />
+
+      {/* Reveal overlay — IxyPixy text fades in over the pull-back */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none',
+        opacity: phase === 'reveal' || phase === 'exit' ? 1 : 0,
+        transition: 'opacity 2.2s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {/* The name — appears as "understanding" over the 3D world */}
         <div style={{
-          fontFamily: 'var(--font-ja)',
-          fontSize: 'clamp(9px,1.7vw,11px)',
-          color: 'rgba(130,170,228,0.40)',
-          letterSpacing: '0.18em',
-          animation: 'sp-sub 0.8s ease 2.9s both',
-          userSelect: 'none',
-        }}>ポケカ 取引管理</div>
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(26px, 7vw, 54px)',
+          fontWeight: 700,
+          letterSpacing: '0.24em',
+          color: 'rgba(255,255,255,0.88)',
+          transform: (phase === 'reveal' || phase === 'exit')
+            ? 'translateY(0)' : 'translateY(16px)',
+          transition: 'transform 2.4s cubic-bezier(0.22,1,0.36,1) 0.5s',
+        }}>
+          IxyPixy
+        </div>
+
+        {/* Thin separator — appears after the name */}
+        <div style={{
+          marginTop: '1.4rem',
+          width: 'clamp(36px, 6vw, 56px)',
+          height: 1,
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)',
+          opacity: (phase === 'reveal' || phase === 'exit') ? 1 : 0,
+          transition: 'opacity 1.6s ease 1s',
+        }} />
       </div>
 
-      {/* Film grain */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.55,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E")`,
-      }} />
+      {/* Skip button */}
+      {showSkip && phase === 'playing' && (
+        <button
+          onClick={handleSkip}
+          style={{
+            position: 'absolute', bottom: 30, right: 30,
+            background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.20)',
+            color: 'rgba(255,255,255,0.42)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '11px',
+            letterSpacing: '0.15em',
+            padding: '7px 18px',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            animation: 'sp-sub 0.5s ease both',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.45)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.20)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.42)';
+          }}
+        >
+          SKIP
+        </button>
+      )}
     </div>
   );
 }

@@ -167,33 +167,5 @@ body {
 
 /* ── Splash screen ── */
 @keyframes sp-in  { from{opacity:0} to{opacity:1} }
-@keyframes sp-out { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(1.06)} }
-
-/* logo emerge: opacity + blur + letter-spacing convergence */
-@keyframes sp-emerge {
-  0%   { opacity:0; filter:blur(12px); letter-spacing:0.60em; }
-  40%  { opacity:1; filter:blur(1px); }
-  100% { opacity:1; filter:blur(0);   letter-spacing:0.10em; }
-}
-
-/* chrome sweep across glass text */
-@keyframes sp-reflect {
-  0%   { background-position:220% center; }
-  100% { background-position:-120% center; }
-}
-
-/* expansion rings */
-@keyframes sp-ring-expand {
-  0%   { transform:scale(1);  opacity:0.50; }
-  100% { transform:scale(30); opacity:0; }
-}
-
-/* top-to-bottom scan line */
-@keyframes sp-scan {
-  0%   { top:-1%;   opacity:0; }
-  6%   { opacity:1; }
-  92%  { opacity:1; }
-  100% { top:101%;  opacity:0; }
-}
-
+@keyframes sp-out { from{opacity:1} to{opacity:0} }
 @keyframes sp-sub { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
