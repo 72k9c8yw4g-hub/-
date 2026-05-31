@@ -69,6 +69,7 @@ export default function MainPage() {
         </div>
         <div className="flex items-center gap-2">
           {myName && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-semibold" style={{fontFamily:'var(--font-ja)'}}>{myName}</span>}
+          <a href="./manual.html" target="_blank" rel="noreferrer" className="text-xs text-slate-400 underline" style={{fontFamily:'var(--font-ja)'}}>使い方</a>
           <a href="#/admin" className="text-xs text-slate-400 underline" style={{fontFamily:'var(--font-ja)'}}>設定</a>
         </div>
       </header>

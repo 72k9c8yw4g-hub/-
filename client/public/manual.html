@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>FUDA 取り扱い説明書</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Zen Kaku Gothic New', sans-serif;
+      background: linear-gradient(135deg, #f0f4ff 0%, #faf0ff 50%, #f0faff 100%);
+      min-height: 100vh;
+      color: #1e293b;
+      padding: 0 0 60px;
+    }
+    header {
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.6);
+      padding: 16px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 { font-size: 18px; font-weight: 700; }
+    header .badge {
+      font-size: 11px;
+      background: linear-gradient(135deg,#818cf8,#c084fc);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 20px; }
+    .card {
+      background: rgba(255,255,255,0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 20px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg,#818cf8,#c084fc);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-text { font-size: 13px; line-height: 1.6; color: #334155; }
+    .step-text strong { color: #1e293b; }
+    .arrow {
+      font-size: 11px;
+      color: #94a3b8;
+      text-align: center;
+      padding: 2px 0 2px 36px;
+    }
+    .site-block { display: flex; flex-direction: column; gap: 14px; }
+    .site {
+      border-left: 3px solid #e2e8f0;
+      padding-left: 14px;
+    }
+    .site-header {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .site-url {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #94a3b8;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .site ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .site li { font-size: 13px; color: #475569; line-height: 1.5; }
+    .site li::before { content: "・"; color: #94a3b8; }
+    .site li strong { color: #1e293b; }
+    .tab-chip {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 6px;
+      margin-right: 2px;
+    }
+    .chip-blue   { background: #eff6ff; color: #3b82f6; }
+    .chip-purple { background: #faf5ff; color: #a855f7; }
+    .chip-green  { background: #f0fdf4; color: #16a34a; }
+    .chip-gray   { background: #f8fafc; color: #64748b; }
+    .chip-orange { background: #fff7ed; color: #ea580c; }
+    .note {
+      background: #fefce8;
+      border: 1px solid #fef08a;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: #713f12;
+      line-height: 1.6;
+    }
+    .note strong { font-weight: 700; }
+    .note ul { list-style: none; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+    .note li::before { content: "⚠️ "; }
+    a { color: #6366f1; text-decoration: underline; }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: #64748b;
+      text-decoration: none;
+      padding: 4px 0;
+    }
+    .divider { height: 1px; background: #e2e8f0; margin: 4px 0; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #e2e8f0; }
+      .card { background: rgba(30,41,59,0.7); border-color: rgba(255,255,255,0.1); }
+      header { background: rgba(15,23,42,0.8); border-color: rgba(255,255,255,0.1); }
+      .step-text { color: #cbd5e1; }
+      .step-text strong { color: #f1f5f9; }
+      .site li { color: #94a3b8; }
+      .site-url { background: #1e293b; color: #64748b; }
+      .note { background: #1c1a09; border-color: #713f12; color: #fef08a; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="./" class="back-btn">← アプリに戻る</a>
+    <span style="flex:1"></span>
+    <h1>🃏 FUDA</h1>
+    <span class="badge">取り扱い説明書</span>
+  </header>
+
+  <div class="container">
+
+    <!-- 概要 -->
+    <div class="card">
+      <div class="card-title">📌 このアプリについて</div>
+      <p style="font-size:13px;line-height:1.7;color:#475569;">
+        FUDAはポケモンカードの<strong>仕入れ判定・売上管理</strong>をチーム（最大4人）でリアルタイムに共有するアプリです。
+        候補の登録・仕入れ判断・売却記録・利益分析までを一貫して管理できます。
+      </p>
+    </div>
+
+    <!-- サイト一覧 -->
+    <div class="card">
+      <div class="card-title">🔗 3つのサイト</div>
+      <div class="site-block">
+        <div class="site" style="border-color:#818cf8;">
+          <div class="site-header">① メインサイト <span class="site-url">/</span></div>
+          <p style="font-size:12px;color:#64748b;">全員が使う。候補の入力・一覧確認・分析。</p>
+        </div>
+        <div class="site" style="border-color:#f59e0b;">
+          <div class="site-header">② 設定 <span class="site-url">/#/admin</span></div>
+          <p style="font-size:12px;color:#64748b;">オーナーが使う。チーム設定・商品の削除。</p>
+        </div>
+        <div class="site" style="border-color:#10b981;">
+          <div class="site-header">③ 仕入れ <span class="site-url">/#/purchasing</span></div>
+          <p style="font-size:12px;color:#64748b;">仕入れ担当が使う。購入判断・売却管理。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 基本フロー -->
+    <div class="card">
+      <div class="card-title">🔄 基本の使い方フロー</div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-text">①の<strong>入力タブ</strong>から仕入れ候補を登録する（商品名・出品先・URLなど）</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-text">③の<strong>やることタブ</strong>で仕入れ担当が確認し「購入する」か「非購入」を判断</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-text">「購入する」場合は出品先（メルカリ or Yahoo!フリマ）と仕入れ値を入力して確定 → <span class="tab-chip chip-purple">売り出し中</span>へ</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-text">③の<strong>売り出し中タブ</strong>で「売れた！」を押して売値を入力 → <span class="tab-chip chip-green">売却済み</span>へ</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="flow-step">
+          <div class="step-num">5</div>
+          <div class="step-text">①の<strong>分析タブ</strong>で利益・勝率・出品先別実績を確認</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ① メインサイト -->
+    <div class="card">
+      <div class="card-title">① メインサイト — 全員用</div>
+      <div class="site">
+        <ul>
+          <li><span class="tab-chip chip-orange">入力</span> 商品名・出品先・URL・メモを入力して候補を追加</li>
+          <li><span class="tab-chip chip-blue">保留中</span> 仕入れ判断待ちの商品一覧</li>
+          <li><span class="tab-chip chip-purple">売り出し中</span> 出品中の商品。仕入れ値・経過日数・予想利益を表示</li>
+          <li><span class="tab-chip chip-green">売却済み</span> 売れた商品と最終利益の一覧</li>
+          <li><span class="tab-chip chip-gray">却下</span> 非購入になった商品（40日後に自動で消える）</li>
+          <li>各タブの商品名をタップ → 詳細（金額・メモ・URL・変更履歴）を表示</li>
+          <li><strong>分析タブ</strong>：売上合計・純利益・勝率・出品先別グラフ</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ② 設定 -->
+    <div class="card">
+      <div class="card-title">② 設定 — オーナーのみ</div>
+      <div class="site">
+        <ul>
+          <li><strong>自分の名前</strong>：この端末で使う名前を選ぶ（全ページで共通）</li>
+          <li><strong>チームメンバー</strong>：メンバー1〜4の名前を設定</li>
+          <li><strong>手数料率</strong>：メルカリ・Yahoo!フリマの手数料（%）</li>
+          <li><strong>初期送料</strong>：利益計算に使うデフォルト送料（円）</li>
+          <li><strong>仕入れ上限</strong>：この金額を超えると購入時に警告（円）</li>
+          <li><strong>アラート日数</strong>：売り出し中がこの日数を超えると⚠️マーク</li>
+          <li><strong>商品の削除</strong>：テスト入力や間違い入力をここから削除できる</li>
+          <li>設定を保存すると全員のアプリに即時反映。変更履歴も残る</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ③ 仕入れ -->
+    <div class="card">
+      <div class="card-title">③ 仕入れサイト — 仕入れ担当用</div>
+      <div class="site">
+        <ul>
+          <li><span class="tab-chip chip-blue">やること</span> 保留中の商品を「購入する」か「非購入」で判断</li>
+          <li>「<strong>購入する</strong>」→ 出品先を選び仕入れ値を入力 → 売り出し中に移動</li>
+          <li>「<strong>非購入</strong>」→ 却下に移動（①の却下タブにも反映）</li>
+          <li><span class="tab-chip chip-purple">売り出し中</span> 出品中の商品を管理</li>
+          <li>「<strong>売れた！</strong>」→ 売値入力で売却済みに移動</li>
+          <li>「<strong>値下げ</strong>」→ 新しい値段を入力（値下げ履歴も残る）</li>
+          <li>仕入れ値・経過日数・予想利益をリアルタイムで確認できる</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 注意事項 -->
+    <div class="note">
+      <strong>⚠️ 使い始める前に</strong>
+      <ul>
+        <li>②設定で<strong>自分の名前</strong>を選んでから使う（誰が登録・操作したか記録される）</li>
+        <li>データは<strong>全員にリアルタイム同期</strong>される（インターネット接続が必要）</li>
+        <li>商品の<strong>削除は②設定のみ</strong>可能（改ざん防止）</li>
+        <li>却下した商品は<strong>40日後に自動削除</strong>される</li>
+      </ul>
+    </div>
+
+  </div>
+</body>
+</html>
