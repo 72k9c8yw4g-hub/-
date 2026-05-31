@@ -5,3 +5,5 @@ client/dist/
 *.log
 .env
 .env.local
+client/.env
+client/.env.local
