@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isConfigured, TEAM } from './supabase.js';
 import { genId, isExpiredReject } from './calc.js';
 
@@ -18,13 +18,14 @@ function saveLocal(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-export function useStore() {
+const StoreContext = createContext(null);
+
+export function StoreProvider({ children }) {
   const [allItems, setAllItems] = useState(() => loadLocal('fuda_items', []));
   const [config, setConfig]     = useState(() => ({ ...DEFAULT_CONFIG, ...loadLocal('fuda_config', {}) }));
   const [myName, setMyName]     = useState(() => localStorage.getItem('fuda_myname') || '');
   const [syncing, setSyncing]   = useState(false);
 
-  // Ref for stable access in callbacks
   const allItemsRef = useRef(allItems);
   useEffect(() => { allItemsRef.current = allItems; }, [allItems]);
 
@@ -67,7 +68,7 @@ export function useStore() {
 
   const _upsertItem = useCallback(async (item) => {
     if (isConfigured && supabase) {
-      await supabase.from('items').upsert({ id: item.id, team: TEAM, data: item, updated_at: new Date().toISOString() });
+      supabase.from('items').upsert({ id: item.id, team: TEAM, data: item, updated_at: new Date().toISOString() });
     }
   }, []);
 
@@ -101,17 +102,17 @@ export function useStore() {
 
   const updateItem = useCallback((id, changes, by, action = '更新') => {
     const now = new Date().toISOString();
-    const prev = allItemsRef.current;
-    const idx = prev.findIndex(i => i.id === id);
+    const current = allItemsRef.current;
+    const idx = current.findIndex(i => i.id === id);
     if (idx === -1) return;
     const updated = {
-      ...prev[idx],
+      ...current[idx],
       ...changes,
       updatedBy: by,
       updatedAt: now,
-      history: [...(prev[idx].history || []), { by, at: now, action }],
+      history: [...(current[idx].history || []), { by, at: now, action }],
     };
-    const copy = [...prev]; copy[idx] = updated;
+    const copy = [...current]; copy[idx] = updated;
     setAllItems(copy);
     _upsertItem(updated);
   }, [_upsertItem]);
@@ -119,26 +120,31 @@ export function useStore() {
   const deleteItem = useCallback(async (id) => {
     setAllItems(prev => prev.filter(i => i.id !== id));
     if (isConfigured && supabase) {
-      await supabase.from('items').delete().eq('id', id).eq('team', TEAM);
+      supabase.from('items').delete().eq('id', id).eq('team', TEAM);
     }
   }, []);
 
   const saveConfig = useCallback(async (cfg, by, note) => {
     const now = new Date().toISOString();
-    const historyEntry = by ? { by, at: now, note: note || '設定を変更' } : null;
+    const entry = by ? { by, at: now, note: note || '設定を変更' } : null;
     const newCfg = {
       ...cfg,
-      history: historyEntry
-        ? [...(cfg.history || []), historyEntry].slice(-50) // 最大50件
-        : (cfg.history || []),
+      history: entry ? [...(cfg.history || []), entry].slice(-50) : (cfg.history || []),
     };
     setConfig(newCfg);
     if (isConfigured && supabase) {
-      await supabase.from('config').upsert({ team: TEAM, data: newCfg });
+      supabase.from('config').upsert({ team: TEAM, data: newCfg });
     }
   }, []);
 
   const items = allItems.filter(i => !isExpiredReject(i));
 
-  return { items, allItems, config, myName, setMyName, syncing, addItem, updateItem, deleteItem, saveConfig, isConfigured };
+  const value = { items, allItems, config, myName, setMyName, syncing, addItem, updateItem, deleteItem, saveConfig, isConfigured };
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error('useStore must be used within StoreProvider');
+  return ctx;
 }

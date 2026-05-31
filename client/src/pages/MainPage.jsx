@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useStore } from '../lib/store.js';
+import { useStore } from '../lib/store.jsx';
 import { calcProfit, daysAgo, PLATFORMS } from '../lib/calc.js';
 
 export default function MainPage() {

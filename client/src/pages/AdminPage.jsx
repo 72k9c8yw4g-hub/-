@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore, DEFAULT_CONFIG } from '../lib/store.js';
+import { useStore, DEFAULT_CONFIG } from '../lib/store.jsx';
 
 export default function AdminPage() {
   const { config, myName, setMyName, saveConfig, items, deleteItem } = useStore();

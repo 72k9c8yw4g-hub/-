@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { StoreProvider } from './lib/store.jsx';
 import MainPage      from './pages/MainPage.jsx';
 import AdminPage     from './pages/AdminPage.jsx';
 import PurchasingPage from './pages/PurchasingPage.jsx';
@@ -19,7 +20,11 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handler);
   }, []);
 
-  if (page === 'admin')      return <AdminPage />;
-  if (page === 'purchasing') return <PurchasingPage />;
-  return <MainPage />;
+  return (
+    <StoreProvider>
+      {page === 'main'       && <MainPage />}
+      {page === 'admin'      && <AdminPage />}
+      {page === 'purchasing' && <PurchasingPage />}
+    </StoreProvider>
+  );
 }
