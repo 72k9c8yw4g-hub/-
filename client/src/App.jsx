@@ -3,6 +3,7 @@ import { StoreProvider } from './lib/store.jsx';
 import MainPage      from './pages/MainPage.jsx';
 import AdminPage     from './pages/AdminPage.jsx';
 import PurchasingPage from './pages/PurchasingPage.jsx';
+import SplashScreen  from './SplashScreen.jsx';
 
 function getPage() {
   const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -12,7 +13,8 @@ function getPage() {
 }
 
 export default function App() {
-  const [page, setPage] = useState(getPage);
+  const [page, setPage]       = useState(getPage);
+  const [splash, setSplash]   = useState(true);
 
   useEffect(() => {
     const handler = () => setPage(getPage());
@@ -21,10 +23,13 @@ export default function App() {
   }, []);
 
   return (
-    <StoreProvider>
-      {page === 'main'       && <MainPage />}
-      {page === 'admin'      && <AdminPage />}
-      {page === 'purchasing' && <PurchasingPage />}
-    </StoreProvider>
+    <>
+      <StoreProvider>
+        {page === 'main'       && <MainPage />}
+        {page === 'admin'      && <AdminPage />}
+        {page === 'purchasing' && <PurchasingPage />}
+      </StoreProvider>
+      {splash && <SplashScreen onDone={() => setSplash(false)} />}
+    </>
   );
 }
