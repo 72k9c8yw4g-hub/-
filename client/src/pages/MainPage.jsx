@@ -3,7 +3,7 @@ import { useStore } from '../lib/store.jsx';
 import { calcProfit, daysAgo, PLATFORMS } from '../lib/calc.js';
 
 export default function MainPage() {
-  const { items, config, myName, syncing, addItem, isConfigured } = useStore();
+  const { items, config, myName, syncing, addItem, deleteItem, isConfigured } = useStore();
   const [tab, setTab]     = useState('input');
   const [form, setForm]   = useState({ name: '', platform: 'メルカリ', url: '', memo: '' });
   const [submitted, setSubmitted] = useState(false);
@@ -272,7 +272,8 @@ export default function MainPage() {
     </div>
     {/* 詳細モーダル — Fragment直下に置いてfixed位置を確実に */}
     {modal && (
-      <ItemModal item={modal} config={config} onClose={() => setModal(null)} />
+      <ItemModal item={modal} config={config} onClose={() => setModal(null)}
+        onDelete={id => { deleteItem(id); setModal(null); }} />
     )}
     </>
   );
@@ -291,7 +292,7 @@ function ItemList({ items, empty, renderCard }) {
 }
 
 // ── Item Detail Modal ─────────────────────────────────────────
-function ItemModal({ item, config, onClose }) {
+function ItemModal({ item, config, onClose, onDelete }) {
   const { profit } = item.salePrice
     ? calcProfit({ purchasePrice: item.purchasePrice, salePrice: item.salePrice, platform: item.sellPlatform||item.platform, shipping: config.shipping, feeRates: config.feeRates })
     : { profit: null };
@@ -395,6 +396,12 @@ function ItemModal({ item, config, onClose }) {
         <div className="text-xs text-slate-300 border-t border-slate-100 pt-3" style={{fontFamily:'var(--font-ja)'}}>
           登録: {item.createdBy} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP') : ''}
         </div>
+
+        {/* 削除 */}
+        <button
+          onClick={() => { if (confirm(`「${item.name}」を削除しますか？`)) onDelete(item.id); }}
+          className="text-xs text-red-400 border border-red-200 rounded-xl py-2.5 w-full mt-1"
+          style={{fontFamily:'var(--font-ja)'}}>この商品を削除する</button>
       </div>
     </div>
   );
