@@ -174,6 +174,17 @@ body {
   66%  { transform:translate(-2%,3%) rotate(-2deg) scale(0.97); }
   100% { transform:translate(1%,-2%) rotate(1deg) scale(1.02); }
 }
+@keyframes sp-ring-in {
+  0%   { opacity:0; transform:scale(1.7); filter:blur(6px); }
+  60%  { opacity:1; filter:blur(0); }
+  100% { opacity:1; transform:scale(1); filter:blur(0); }
+}
+@keyframes sp-cw  { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
+@keyframes sp-ccw { from{transform:rotate(0deg)}   to{transform:rotate(-360deg)} }
+@keyframes sp-ripple {
+  0%   { transform:scale(1);   opacity:0.7; }
+  100% { transform:scale(2.6); opacity:0; }
+}
 @keyframes sp-logo {
   0%   { opacity:0; filter:blur(32px) brightness(3); transform:scale(1.18) translateY(8px); }
   50%  { opacity:1; filter:blur(6px) brightness(1.6); transform:scale(1.04) translateY(-2px); }
