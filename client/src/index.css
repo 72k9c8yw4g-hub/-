@@ -169,19 +169,11 @@ body {
 @keyframes sp-in  { from{opacity:0} to{opacity:1} }
 @keyframes sp-out { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(1.06)} }
 
-/* logo emerge: opacity + blur + letter-spacing converge (no transform — lets sp-float own transforms) */
+/* logo emerge: opacity + blur + letter-spacing convergence */
 @keyframes sp-emerge {
-  0%   { opacity:0; filter:blur(10px); letter-spacing:0.65em; }
-  40%  { opacity:1; filter:blur(0.8px); }
-  100% { opacity:1; filter:blur(0);    letter-spacing:0.10em; }
-}
-
-/* logo float: subtle 3D tilt (transform only — no conflicts with sp-emerge) */
-@keyframes sp-float {
-  0%   { transform:perspective(1000px) rotateX(2deg)  rotateY(-2deg)  translateY(0); }
-  33%  { transform:perspective(1000px) rotateX(-1deg) rotateY(2.5deg) translateY(-6px); }
-  66%  { transform:perspective(1000px) rotateX(3deg)  rotateY(-1.5deg) translateY(-3px); }
-  100% { transform:perspective(1000px) rotateX(2deg)  rotateY(-2deg)  translateY(0); }
+  0%   { opacity:0; filter:blur(12px); letter-spacing:0.60em; }
+  40%  { opacity:1; filter:blur(1px); }
+  100% { opacity:1; filter:blur(0);   letter-spacing:0.10em; }
 }
 
 /* chrome sweep across glass text */
