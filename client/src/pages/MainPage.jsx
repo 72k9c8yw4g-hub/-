@@ -54,6 +54,7 @@ export default function MainPage() {
   }, [items, config]);
 
   return (
+    <>
     <div className="min-h-dvh flex flex-col max-w-lg mx-auto">
       {/* Header */}
       <header className="sticky top-0 z-30 glass border-b border-white/40 px-4 py-3 flex items-center justify-between">
@@ -211,42 +212,57 @@ export default function MainPage() {
         )}
       </main>
 
-      {/* 詳細モーダル */}
-      {modal && (
-        <ItemModal item={modal} config={config} onClose={() => setModal(null)} />
-      )}
     </div>
+    {/* 詳細モーダル — Fragment直下に置いてfixed位置を確実に */}
+    {modal && (
+      <ItemModal item={modal} config={config} onClose={() => setModal(null)} />
+    )}
+    </>
   );
 }
 
 // ── Section ──────────────────────────────────────────────────
+const PREVIEW_COUNT = 1;
+
 function Section({ title, count, color, items, onTap, renderPreview, alert }) {
-  const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const colors = { blue:'bg-blue-50 text-blue-600', purple:'bg-purple-50 text-purple-600', green:'bg-emerald-50 text-emerald-600', gray:'bg-slate-100 text-slate-500' };
+  const visible = expanded ? items : items.slice(0, PREVIEW_COUNT);
+  const rest = items.length - PREVIEW_COUNT;
+
   return (
     <div>
-      <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 mb-2 w-full">
+      <div className="flex items-center gap-2 mb-2">
         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${colors[color]}`} style={{fontFamily:'var(--font-ja)'}}>{title} {count}</span>
         {alert > 0 && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold" style={{fontFamily:'var(--font-ja)'}}>⚠️ {alert}件遅延</span>}
-        <span className="text-slate-300 ml-auto text-xs">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div className="flex flex-col gap-2">
-          {items.length === 0
-            ? <div className="text-xs text-slate-300 px-1" style={{fontFamily:'var(--font-ja)'}}>なし</div>
-            : items.map(item => (
+      </div>
+      <div className="flex flex-col gap-2">
+        {items.length === 0
+          ? <div className="text-xs text-slate-300 px-1" style={{fontFamily:'var(--font-ja)'}}>なし</div>
+          : <>
+              {visible.map(item => (
                 <button key={item.id} onClick={() => onTap(item)}
-                  className="glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full hover:shadow-md transition-shadow active:scale-[0.98]">
+                  className="glass rounded-xl px-4 py-3 flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm truncate" style={{fontFamily:'var(--font-ja)'}}>{item.name}</div>
                     <div className="mt-0.5">{renderPreview(item)}</div>
                   </div>
                   <span className="text-slate-300 text-xs shrink-0">›</span>
                 </button>
-              ))
-          }
-        </div>
-      )}
+              ))}
+              {rest > 0 && !expanded && (
+                <button onClick={() => setExpanded(true)}
+                  className="text-xs text-slate-400 text-left px-1 py-1 underline underline-offset-2"
+                  style={{fontFamily:'var(--font-ja)'}}>他 {rest}件を見る</button>
+              )}
+              {expanded && rest > 0 && (
+                <button onClick={() => setExpanded(false)}
+                  className="text-xs text-slate-400 text-left px-1 py-1 underline underline-offset-2"
+                  style={{fontFamily:'var(--font-ja)'}}>折りたたむ</button>
+              )}
+            </>
+        }
+      </div>
     </div>
   );
 }
