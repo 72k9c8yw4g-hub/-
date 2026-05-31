@@ -227,6 +227,136 @@ function Ring({ d, color, shadowColor, strokeW, dash, duration, reverse, delay, 
   );
 }
 
+/* ── holographic glass orb ───────────────────────────────────── */
+function GlassOrb({ r }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const pad = Math.round(r * 1.1);
+    const sz  = r * 2 + pad * 2;
+
+    canvas.width  = sz * dpr;
+    canvas.height = sz * dpr;
+    canvas.style.width  = sz + 'px';
+    canvas.style.height = sz + 'px';
+    canvas.style.marginTop  = -sz / 2 + 'px';
+    canvas.style.marginLeft = -sz / 2 + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const cx = pad + r, cy = pad + r;
+    let raf, t = 0;
+
+    const RIM = [
+      [255,60,80],[255,145,50],[235,220,50],
+      [50,220,90],[50,185,255],[90,90,255],[200,60,255],
+    ];
+    const CAUSTIC = [
+      [255,120,120],[255,190,80],[120,255,130],
+      [80,200,255],[160,100,255],[255,120,200],
+    ];
+
+    const draw = () => {
+      ctx.clearRect(0, 0, sz, sz);
+      t += 0.008;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 0.5);
+
+      // outer ambient glow
+      const og = ctx.createRadialGradient(cx, cy, 0, cx, cy, r + pad * 0.85);
+      og.addColorStop(0,    `rgba(167,139,250,${(0.10 + 0.04 * pulse).toFixed(3)})`);
+      og.addColorStop(0.35, `rgba(96,165,250,${(0.05 + 0.02 * pulse).toFixed(3)})`);
+      og.addColorStop(0.65, `rgba(240,171,252,${(0.03 + 0.01 * pulse).toFixed(3)})`);
+      og.addColorStop(1,    'rgba(0,0,0,0)');
+      ctx.fillStyle = og;
+      ctx.fillRect(0, 0, sz, sz);
+
+      // glass body (clipped to sphere)
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+
+      const body = ctx.createRadialGradient(cx - r*0.15, cy - r*0.2, 0, cx, cy, r);
+      body.addColorStop(0,    'rgba(230,238,255,0.05)');
+      body.addColorStop(0.55, 'rgba(180,200,255,0.03)');
+      body.addColorStop(1,    'rgba(110,140,255,0.07)');
+      ctx.fillStyle = body; ctx.fillRect(0, 0, sz, sz);
+
+      // caustic light specks
+      for (let i = 0; i < 6; i++) {
+        const a  = t * (0.18 + i * 0.06) + i * (Math.PI * 2 / 6);
+        const d  = r * (0.21 + 0.11 * Math.sin(t * 0.28 + i));
+        const bx = cx + Math.cos(a) * d, by = cy + Math.sin(a) * d;
+        const bs = r * 0.17;
+        const [rc,gc,bc] = CAUSTIC[i];
+        const al = (0.10 + 0.06 * Math.sin(t * 0.5 + i)).toFixed(3);
+        const cg = ctx.createRadialGradient(bx, by, 0, bx, by, bs);
+        cg.addColorStop(0, `rgba(${rc},${gc},${bc},${al})`);
+        cg.addColorStop(1, `rgba(${rc},${gc},${bc},0)`);
+        ctx.fillStyle = cg; ctx.fillRect(bx - bs, by - bs, bs * 2, bs * 2);
+      }
+
+      // main specular (top-left)
+      const hl1 = ctx.createRadialGradient(cx-r*0.27, cy-r*0.32, 0, cx-r*0.27, cy-r*0.32, r*0.35);
+      hl1.addColorStop(0,    'rgba(255,255,255,0.82)');
+      hl1.addColorStop(0.22, 'rgba(255,255,255,0.40)');
+      hl1.addColorStop(0.55, 'rgba(235,242,255,0.10)');
+      hl1.addColorStop(1,    'rgba(255,255,255,0)');
+      ctx.fillStyle = hl1; ctx.fillRect(0, 0, sz, sz);
+
+      // secondary specular (bottom-right, blue)
+      const hl2 = ctx.createRadialGradient(cx+r*0.25, cy+r*0.28, 0, cx+r*0.25, cy+r*0.28, r*0.15);
+      hl2.addColorStop(0, 'rgba(185,218,255,0.52)');
+      hl2.addColorStop(1, 'rgba(185,218,255,0)');
+      ctx.fillStyle = hl2; ctx.fillRect(cx, cy, r, r);
+
+      ctx.restore();
+
+      // rainbow Fresnel rim
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < RIM.length; i++) {
+        const [rc,gc,bc] = RIM[i];
+        const rimR = r - i * 1.3;
+        const rot  = t * 0.10 + i * 0.40;
+        for (let s = 0; s < 9; s++) {
+          const a0 = (s / 9) * Math.PI * 2 + rot;
+          const a1 = ((s + 0.55) / 9) * Math.PI * 2 + rot;
+          const al = ((0.22 + 0.12 * Math.sin(a0 * 2.5 + t)) *
+                      (0.5  + 0.5  * Math.sin(t * 0.25 + i * 0.6))).toFixed(3);
+          ctx.strokeStyle = `rgba(${rc},${gc},${bc},${al})`;
+          ctx.lineWidth   = 1.6 - i * 0.14;
+          ctx.beginPath(); ctx.arc(cx, cy, rimR, a0, a1); ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      // edge outline
+      ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+      raf = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [r]);
+
+  return (
+    <canvas
+      ref={ref}
+      style={{
+        position: 'absolute', top: '50%', left: '50%',
+        pointerEvents: 'none',
+        animation: 'sp-ring-in 1.0s cubic-bezier(0.16,1,0.3,1) 0.42s both',
+      }}
+    />
+  );
+}
+
 /* ── ripple ──────────────────────────────────────────────────── */
 function Ripple({ delay, color }) {
   return (
@@ -280,6 +410,7 @@ export default function SplashScreen({ onDone }) {
       <div style={{ position:'absolute', width:S, height:S, top:'50%', left:'50%', transform:'translate(-50%,-50%)' }}>
         <Ripple delay={0.7}  color="rgba(167,139,250,0.55)" />
         <Ripple delay={2.1}  color="rgba(96,165,250,0.40)" />
+        <GlassOrb r={Math.round(S * 0.16)} />
 
         <Ring d={S}        color="rgba(167,139,250,0.28)" shadowColor="rgba(167,139,250,0.4)"
           strokeW={1}  dash duration={30} reverse={false} delay={0.30}
